@@ -3,37 +3,22 @@ import json
 import subprocess
 import re
 import datetime
+from changelog import getLogs
+from helpers import get_results, intToBool
+import config
 
 
-def get_results(db_cursor):
-    desc = [d[0] for d in db_cursor.description]
-    results = [dotdict(dict(zip(desc, res))) for res in db_cursor.fetchall()]
-    return results
-
-class dotdict(dict):
-    __getattr__ = dict.get
-    __setattr__ = dict.__setitem__
-    __delattr__ = dict.__delitem__
-
-def intToBool(number):
-    if number == 1:
-        return True
-    return False
-
-RESSOURCES_PATH = 'ressources/'
-FOLDER_NAME = RESSOURCES_PATH+'DiagFile-aed-bea-rg1-OH1A'
 # Gathering Health Data
 
 heath = {
     'disk': {},
 }
 
-CMD = f"grep 'Total_LBAs_Written' -A 7 {FOLDER_NAME}/smartctl_sdc.txt"
+CMD = f"grep 'Total_LBAs_Written' -A 7 {config.FOLDER_NAME}/smartctl_sdc.txt"
 p = subprocess.run(CMD, shell=True, stdout=subprocess.PIPE)
 for entry in p.stdout.decode().splitlines():
     heath['disk'][entry.split(' ')[1]] = ' '.join(entry.split(' ')[2:]).lstrip()
 print(json.dumps(heath, indent=2))
-
 
 
 inbound = {
@@ -51,10 +36,10 @@ outbound = {
   "denied-countries": [],
 }
 
-conn_cfg = sqlite3.connect(f'{RESSOURCES_PATH}cfg.db')
+conn_cfg = sqlite3.connect(f'{config.RESSOURCES_PATH}cfg.db')
 cur_cfg = conn_cfg.cursor()
 
-conn_events = sqlite3.connect(f'{RESSOURCES_PATH}events.db')
+conn_events = sqlite3.connect(f'{config.RESSOURCES_PATH}events.db')
 cur_events = conn_events.cursor()
 
 # Deny and Allow list
@@ -343,7 +328,7 @@ for row in results:
 
 # Feeds
 
-conn_feed = sqlite3.connect(f'{RESSOURCES_PATH}feed.db')
+conn_feed = sqlite3.connect(f'{config.RESSOURCES_PATH}feed.db')
 cur_feed = conn_feed.cursor()
 cur_feed.execute('select * from webcrawler_engine')
 results = get_results(cur_feed)
@@ -361,40 +346,7 @@ print(f"Web Crawlers enabled: {round(webcrawlers_enabled/len(webcrawlers)*100)}%
 
 conn_feed.close()
 
-# ChangeLog
 
-changes = {
-    'pg': [],
-    'st': [],
-    'mfl': [],
-}
-
-
-conn_log = sqlite3.connect(f'{RESSOURCES_PATH}log.db')
-cur_log = conn_log.cursor()
-# Protection Group
-cur_log.execute('select * from changelog where subsystem=="Protection Group"')
-results = get_results(cur_log)
-for row in results:
-    if row['gid'] not in pgs:
-        print(f"PG {row['gid']} no longer exist - {datetime.datetime.fromtimestamp(row['tstamp'])}")
-        continue
-    changes['pg'].append(row)
-
-# Server Type
-cur_log.execute('select * from changelog where subsystem=="Server Type"')
-results = get_results(cur_log)
-for row in results:
-    changes['st'].append(row)
-
-# Master Filter List
-cur_log.execute('select * from changelog where subsystem=="Master Filter Lists"')
-results = get_results(cur_log)
-for row in results:
-    changes['mfl'].append(row)
-
-
-conn_log.close()
 
 # print(json.dumps(inbound, indent=2))
 # print(json.dumps(pgs, indent=2))
@@ -405,37 +357,38 @@ conn_log.close()
 conn_cfg.close()
 conn_events.close()
 
+changes = getLogs(
+    list(pgs.keys()),
+    list(sts.keys()),
+    )
 
 # Writting to Files
 
-PATH = '../'
-INDENT=2
+with open(f"{config.EXPORT_PATH}export.pg", "w") as outfile:
+    json.dump(pgs, outfile, indent=config.EXPORT_INDENT)
 
-with open(f"{PATH}export.pg", "w") as outfile:
-    json.dump(pgs, outfile, indent=INDENT)
-
-with open(f"{PATH}export.ibh", "w") as outfile:
-    json.dump(inbound['denied-hosts'], outfile, indent=INDENT)
-with open(f"{PATH}export.ibc", "w") as outfile:
-    json.dump(inbound['denied-countries'], outfile, indent=INDENT)
-with open(f"{PATH}export.iwh", "w") as outfile:
-    json.dump(inbound['allowed-hosts'], outfile, indent=INDENT)
-with open(f"{PATH}export.mfl", "w") as outfile:
-    json.dump(inbound['mfl'], outfile, indent=INDENT)
+with open(f"{config.EXPORT_PATH}export.ibh", "w") as outfile:
+    json.dump(inbound['denied-hosts'], outfile, indent=config.EXPORT_INDENT)
+with open(f"{config.EXPORT_PATH}export.ibc", "w") as outfile:
+    json.dump(inbound['denied-countries'], outfile, indent=config.EXPORT_INDENT)
+with open(f"{config.EXPORT_PATH}export.iwh", "w") as outfile:
+    json.dump(inbound['allowed-hosts'], outfile, indent=config.EXPORT_INDENT)
+with open(f"{config.EXPORT_PATH}export.mfl", "w") as outfile:
+    json.dump(inbound['mfl'], outfile, indent=config.EXPORT_INDENT)
 
 
-with open(f"{PATH}export.obh", "w") as outfile:
-    json.dump(outbound['denied-hosts'], outfile, indent=INDENT)
-with open(f"{PATH}export.ibc", "w") as outfile:
-    json.dump(outbound['denied-countries'], outfile, indent=INDENT)
-with open(f"{PATH}export.owh", "w") as outfile:
-    json.dump(outbound['allowed-hosts'], outfile, indent=INDENT)
+with open(f"{config.EXPORT_PATH}export.obh", "w") as outfile:
+    json.dump(outbound['denied-hosts'], outfile, indent=config.EXPORT_INDENT)
+with open(f"{config.EXPORT_PATH}export.ibc", "w") as outfile:
+    json.dump(outbound['denied-countries'], outfile, indent=config.EXPORT_INDENT)
+with open(f"{config.EXPORT_PATH}export.owh", "w") as outfile:
+    json.dump(outbound['allowed-hosts'], outfile, indent=config.EXPORT_INDENT)
 
-with open(f"{PATH}export.int", "w") as outfile:
-    json.dump(interfaces, outfile, indent=INDENT)
+with open(f"{config.EXPORT_PATH}export.int", "w") as outfile:
+    json.dump(interfaces, outfile, indent=config.EXPORT_INDENT)
 
-with open(f"{PATH}export.log", "w") as outfile:
-    json.dump(changes, outfile, indent=INDENT)
+with open(f"{config.EXPORT_PATH}export.log", "w") as outfile:
+    json.dump(changes, outfile, indent=config.EXPORT_INDENT)
 
-with open(f"{PATH}export.wce", "w") as outfile:
-    json.dump(webcrawlers, outfile, indent=INDENT)
+with open(f"{config.EXPORT_PATH}export.wce", "w") as outfile:
+    json.dump(webcrawlers, outfile, indent=config.EXPORT_INDENT)
