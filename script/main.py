@@ -4,11 +4,41 @@ import subprocess
 import re
 import datetime
 from changelog import getLogs
-from helpers import get_results, intToBool
+from helpers import get_results, intToBool, get_results_list
+from protections import getProtectionDetails
 import config
+import argparse
+import os
+import copy
 
 
-# Gathering Health Data
+parser = argparse.ArgumentParser(description='Basic argparse example.')
+# have at least one argument
+requiredNamed = parser.add_argument_group('required named arguments')
+requiredNamed.add_argument('--ressource',
+                    '-r',
+                    dest='ressource',
+                    default=None,
+                    required=True,
+                    help='Diagfile Folder')
+
+requiredNamed.add_argument('--export',
+                    '-e',
+                    dest='export',
+                    default='exports/default/',
+                    help='Export Folder')
+
+
+# parse the arguments
+args = parser.parse_args()
+config.FOLDER_NAME = args.ressource
+
+if args.export[-1] != '/':
+    config.EXPORT_PATH = args.export+'/'
+else:
+    config.EXPORT_PATH = args.export
+
+
 
 heath = {
     'disk': {},
@@ -36,10 +66,10 @@ outbound = {
   "denied-countries": [],
 }
 
-conn_cfg = sqlite3.connect(f'{config.RESSOURCES_PATH}cfg.db')
+conn_cfg = sqlite3.connect(f'{config.FOLDER_NAME}/tuba/cfg.db')
 cur_cfg = conn_cfg.cursor()
 
-conn_events = sqlite3.connect(f'{config.RESSOURCES_PATH}events.db')
+conn_events = sqlite3.connect(f'{config.FOLDER_NAME}/tuba/events.db')
 cur_events = conn_events.cursor()
 
 # Deny and Allow list
@@ -124,17 +154,19 @@ for row in results:
     if row['pgid'] not in pgs:
         pgs[row['pgid']] = {
             "name": row['name'],
-            "active": row['description'],
+            "active": row['active'],
             "description": row['description'],
             "security_level": row['security_level'],
             "server_type": row['server_type'],
             "prefixes": [row['prefix']],
             "is_ipv6": row['is_ipv6'],
             "create_tstamp": row['create_tstamp'],
-            "alert_thresholds": {}
+            "alert_thresholds": {},
+            "pgid": row['pgid'],
         }
     if row['server_type'] not in sts:
-        sts[row['server_type']] = {}
+        sts[row['server_type']] = copy.deepcopy(config.ST_SHELL)
+        sts[row['server_type']]['server_type'] = row['server_type']
     else:
         pgs[row['pgid']]['prefixes'].append(row['prefix'])
 
@@ -155,18 +187,17 @@ for row in results:
     }
     pgs[row['pgid']]['profile_capture'] = sts[row['server_type']]['profile_capture']
 
-        
+cur_cfg.execute('select st.server_type,st.parent_type,st.server_name,cid.cid from st join cid ON st.server_type=cid.id')
+results = get_results(cur_cfg) 
+for row in results:
+    if row['server_type'] not in sts:
+        continue
+    sts[row['server_type']]['parentType'] = row['parent_type']
+    sts[row['server_type']]['serverName'] = row['server_name']
+    sts[row['server_type']]['cid'] = row['cid']
     
 
 # Alert Bandwidth Thresholds
-
-ALERT_MODES = {
-    0: 'disabled',
-    1: 'alert_static',
-    2: 'alert_global',
-    3: 'auto_level_static',
-    4: 'auto_level_global',
-}
 
 cur_cfg.execute('select * from pg_bandwidth_alert_config')
 results = get_results(cur_cfg)
@@ -176,24 +207,22 @@ for row in results:
         continue
     if row['local_alert_type'] == 200:
         pgs[row['pgid']]['alert_thresholds']['total'] = {
-            'mode': ALERT_MODES[row['enable_mode']],
+            'mode': config.BANDWIDTH_ALERT_MODES[row['enable_mode']],
             'bps': row['threshold_bps'],
             'pps': row['threshold_pps'],
         }
     elif row['local_alert_type'] == 203:
         pgs[row['pgid']]['alert_thresholds']['drop'] = {
-            'mode': ALERT_MODES[row['enable_mode']],
+            'mode': config.BANDWIDTH_ALERT_MODES[row['enable_mode']],
             'bps': row['threshold_bps'],
             'pps': row['threshold_pps'],
         }
     elif row['local_alert_type'] == 201:
         pgs[row['pgid']]['alert_thresholds']['botnet'] = {
-            'mode': ALERT_MODES[row['enable_mode']],
+            'mode': config.BANDWIDTH_ALERT_MODES[row['enable_mode']],
             'bps': row['threshold_bps'],
             'pps': row['threshold_pps'],
         }
-
-
 
 
 cur_events.execute('select * from pg_baselines')
@@ -246,7 +275,7 @@ for row in results:
         continue
     
     if row['pgid'] is None:
-        print(f"PG no longer exist - {datetime.datetime.fromtimestamp(row['start_time'])}")
+        # print(f"PG er exist - {datetime.datetime.fromtimestamp(row['start_time'])}")
         continue
     if row['pgid'] not in pgs:
         print(f"{row['pgid']} not in pgs")
@@ -283,6 +312,11 @@ for row in results:
         continue
 
 
+
+
+sts = getProtectionDetails(cur_cfg, pgs, sts)
+
+
 global_alerting = {}
 cur_cfg.execute('select * from baseline_alerting_config')
 results = get_results(cur_cfg)
@@ -303,6 +337,67 @@ for row in results:
 
 
 
+
+
+# Notification Dest
+
+notification_dests = {
+    'syslog': [],
+    'snmp': [],
+    'email': []
+}
+
+
+cur_cfg.execute('select * from notification_dest')
+results = get_results(cur_cfg)
+
+for row in results:
+
+    cur_cfg.execute(f"select type from notification_config where ndid={row['id']}")
+    notification_config_results = get_results_list(cur_cfg)
+    types_human = []
+    for type_id in notification_config_results:
+        types_human.append(config.NOTIFICATION['type'][type_id])
+
+    obj = {
+        'id': row['id'],
+        'type': row['type'],
+        'creator': row['creator'],
+        'tstamp': row['tstamp'],
+        'types': types_human
+    }
+    
+
+    if row['syslog_host'] is not None:
+        for key in row:
+            if key.startswith("syslog"):
+                if key == "syslog_severity":
+                    obj[key[7:]] = config.NOTIFICATION['severity'][row[key]]
+                    continue
+                if key == "syslog_facility":
+                    obj[key[7:]] = config.NOTIFICATION['facility'][row[key]]
+                    continue
+                obj[key[7:]] = row[key]
+        notification_dests['syslog'].append(obj)
+    elif row['snmp_host'] is not None:
+        for key in row:
+            if key.startswith("snmp"):
+                obj[key[5:]] = row[key]
+        notification_dests['snmp'].append(obj)
+    elif row['email_to'] is not None:
+        for key in row:
+            if key.startswith("email"):
+                obj[key[6:]] = row[key]
+        notification_dests['email'].append(obj)
+
+
+# HTTP PROXY
+cur_cfg.execute('select * from http_proxy')
+results = get_results(cur_cfg)
+http_proxy = []
+for row in results:
+    if row['host'] is not None:
+        http_proxy.append(row)
 
 
 # Global Config
@@ -328,7 +423,7 @@ for row in results:
 
 # Feeds
 
-conn_feed = sqlite3.connect(f'{config.RESSOURCES_PATH}feed.db')
+conn_feed = sqlite3.connect(f'{config.FOLDER_NAME}/tuba/feed.db')
 cur_feed = conn_feed.cursor()
 cur_feed.execute('select * from webcrawler_engine')
 results = get_results(cur_feed)
@@ -362,33 +457,84 @@ changes = getLogs(
     list(sts.keys()),
     )
 
+
+# Format PG List as table
+pgs_formated = {
+    "protection-groups": []
+}
+for pg in pgs:
+    pgs_formated["protection-groups"].append(pgs[pg])
+
+def formater(name, source):
+    formated = {f"{name}": []}
+    for key in source:
+        formated[f"{name}"].append(source[key])
+    return formated
+
+
 # Writting to Files
 
-with open(f"{config.EXPORT_PATH}export.pg", "w") as outfile:
+
+
+if not os.path.exists(config.EXPORT_PATH):
+    os.makedirs(config.EXPORT_PATH)
+
+if not os.path.exists(f'{config.EXPORT_PATH}{config.LEGACY}'):
+    os.makedirs(f'{config.EXPORT_PATH}{config.LEGACY}')
+
+with open(f"{config.EXPORT_PATH}{config.LEGACY}export.pg", "w") as outfile:
+    json.dump(formater("protection-groups",pgs), outfile, indent=config.EXPORT_INDENT)
+with open(f"{config.EXPORT_PATH}pgs.json", "w") as outfile:
     json.dump(pgs, outfile, indent=config.EXPORT_INDENT)
 
-with open(f"{config.EXPORT_PATH}export.ibh", "w") as outfile:
-    json.dump(inbound['denied-hosts'], outfile, indent=config.EXPORT_INDENT)
-with open(f"{config.EXPORT_PATH}export.ibc", "w") as outfile:
-    json.dump(inbound['denied-countries'], outfile, indent=config.EXPORT_INDENT)
-with open(f"{config.EXPORT_PATH}export.iwh", "w") as outfile:
-    json.dump(inbound['allowed-hosts'], outfile, indent=config.EXPORT_INDENT)
-with open(f"{config.EXPORT_PATH}export.mfl", "w") as outfile:
+
+with open(f"{config.EXPORT_PATH}{config.LEGACY}export.st", "w") as outfile:
+    json.dump(formater("server-types",sts), outfile, indent=config.EXPORT_INDENT)
+with open(f"{config.EXPORT_PATH}sts.json", "w") as outfile:
+    json.dump(sts, outfile, indent=config.EXPORT_INDENT)
+
+with open(f"{config.EXPORT_PATH}server_types.json", "w") as outfile:
+    json.dump(sts, outfile, indent=config.EXPORT_INDENT)
+
+with open(f"{config.EXPORT_PATH}{config.LEGACY}export.ibh", "w") as outfile:
+    json.dump({"denied-hosts": inbound['denied-hosts']}, outfile, indent=config.EXPORT_INDENT)
+with open(f"{config.EXPORT_PATH}{config.LEGACY}export.ibc", "w") as outfile:
+    json.dump({"denied-countries": inbound['denied-countries']}, outfile, indent=config.EXPORT_INDENT)
+with open(f"{config.EXPORT_PATH}{config.LEGACY}export.iwh", "w") as outfile:
+    json.dump({"allowed-hosts": inbound['allowed-hosts']}, outfile, indent=config.EXPORT_INDENT)
+with open(f"{config.EXPORT_PATH}{config.LEGACY}export.mfl", "w") as outfile:
     json.dump(inbound['mfl'], outfile, indent=config.EXPORT_INDENT)
 
 
-with open(f"{config.EXPORT_PATH}export.obh", "w") as outfile:
-    json.dump(outbound['denied-hosts'], outfile, indent=config.EXPORT_INDENT)
-with open(f"{config.EXPORT_PATH}export.ibc", "w") as outfile:
-    json.dump(outbound['denied-countries'], outfile, indent=config.EXPORT_INDENT)
-with open(f"{config.EXPORT_PATH}export.owh", "w") as outfile:
-    json.dump(outbound['allowed-hosts'], outfile, indent=config.EXPORT_INDENT)
+with open(f"{config.EXPORT_PATH}{config.LEGACY}export.obh", "w") as outfile:
+    json.dump({"denied-hosts": outbound['denied-hosts']}, outfile, indent=config.EXPORT_INDENT)
+with open(f"{config.EXPORT_PATH}{config.LEGACY}export.ibc", "w") as outfile:
+    json.dump({"denied-countries": outbound['denied-countries']}, outfile, indent=config.EXPORT_INDENT)
+with open(f"{config.EXPORT_PATH}{config.LEGACY}export.owh", "w") as outfile:
+    json.dump({"allowed-hosts": outbound['allowed-hosts']}, outfile, indent=config.EXPORT_INDENT)
 
-with open(f"{config.EXPORT_PATH}export.int", "w") as outfile:
+with open(f"{config.EXPORT_PATH}interfaces.json", "w") as outfile:
     json.dump(interfaces, outfile, indent=config.EXPORT_INDENT)
 
 with open(f"{config.EXPORT_PATH}export.log", "w") as outfile:
     json.dump(changes, outfile, indent=config.EXPORT_INDENT)
 
-with open(f"{config.EXPORT_PATH}export.wce", "w") as outfile:
+with open(f"{config.EXPORT_PATH}webcrawlers.json", "w") as outfile:
     json.dump(webcrawlers, outfile, indent=config.EXPORT_INDENT)
+
+# Legacy
+with open(f"{config.EXPORT_PATH}{config.LEGACY}export.at", "w") as outfile:
+    json.dump(global_alerting, outfile, indent=config.EXPORT_INDENT)
+
+with open(f"{config.EXPORT_PATH}global_alerting.json", "w") as outfile:
+    json.dump(global_alerting, outfile, indent=config.EXPORT_INDENT)
+    
+
+with open(f"{config.EXPORT_PATH}global.json", "w") as outfile:
+    json.dump(global_config, outfile, indent=config.EXPORT_INDENT)
+
+with open(f"{config.EXPORT_PATH}http_proxy.json", "w") as outfile:
+    json.dump(http_proxy, outfile, indent=config.EXPORT_INDENT)
+
+with open(f"{config.EXPORT_PATH}notification_dests.json", "w") as outfile:
+    json.dump(notification_dests, outfile, indent=config.EXPORT_INDENT)

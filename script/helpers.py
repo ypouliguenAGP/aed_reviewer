@@ -3,6 +3,13 @@ def get_results(db_cursor):
     results = [dotdict(dict(zip(desc, res))) for res in db_cursor.fetchall()]
     return results
 
+def get_results_list(db_cursor):
+    desc = [d[0] for d in db_cursor.description]
+    results = []
+    for res in db_cursor.fetchall():
+        results.append(res[0])
+    return results
+
 class dotdict(dict):
     __getattr__ = dict.get
     __setattr__ = dict.__setitem__

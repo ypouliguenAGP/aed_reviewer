@@ -19,7 +19,7 @@ def getLogs(pgs, sts):
     results = get_results(cur_log)
     for row in results:
         if row['gid'] not in pgs:
-            print(f"PG {row['gid']} no longer exist - {datetime.datetime.fromtimestamp(row['tstamp'])}")
+            # print(f"PG {row['gid']} no longer exist - {datetime.datetime.fromtimestamp(row['tstamp'])}")
             continue
         if row['gid'] not in changes['pg']:
             changes['pg'][row['gid']] = []
