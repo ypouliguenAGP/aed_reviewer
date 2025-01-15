@@ -4,121 +4,59 @@ import HelloWorld from './components/HelloWorld.vue'
 </script>
 
 <template>
-  <header>
 
-    <div id="mySidenav" class="sidenav">
-      <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
-      <a href="#">About</a>
-      <a href="#">Services</a>
-      <a href="#">Clients</a>
-      <a href="#">Contact</a>
-    </div>
-    <div class="wrapper">
-      <HelloWorld msg="Props " />
-      <nav>
-        <RouterLink to="/">Protection Groups</RouterLink>
-        <RouterLink to="/about">About</RouterLink>
-      </nav>
-      
-      <div class="main">
-        <strong>Current route path:</strong> {{ $route.fullPath }}
-        <!-- Use any element to open the sidenav -->
-        <span onclick="openNav()">open</span>
-      </div>
-      
-    </div>
-  </header>
+    <div class="grid-container">
+        <div class="grid-child left">
+            <ul class="bd-links-nav list-unstyled mb-0 pb-3 pb-md-2 pe-lg-2">
+                <li class="bd-links-group py-2">
+                    <strong class="bd-links-heading d-flex w-100 align-items-center fw-semibold">AED</strong>
+                    <ul class="list-unstyled fw-normal pb-2 small">
+                        <li><RouterLink class="bd-links-link d-inline-block rounded" to="/protection-groups">Protection Groups</RouterLink></li>
+                        <li><RouterLink class="bd-links-link d-inline-block rounded" to="/interfaces">Interfaces</RouterLink></li>
+                        <li><RouterLink class="bd-links-link d-inline-block rounded" to="/crawlers">Crawlers</RouterLink></li>
+                        <li><RouterLink class="bd-links-link d-inline-block rounded" to="/notifications">Notifications</RouterLink></li>
+                    </ul>
+                </li>
+            </ul>
+            <ul class="bd-links-nav list-unstyled mb-0 pb-3 pb-md-2 pe-lg-2">
+                <li class="bd-links-group py-2">
+                    <strong class="bd-links-heading d-flex w-100 align-items-center fw-semibold">Settings</strong>
+                    <ul class="list-unstyled fw-normal pb-2 small">
+                        <li><RouterLink class="bd-links-link d-inline-block rounded" to="/settings">General</RouterLink></li>
+                    </ul>
+                </li>
+            </ul>
+            
+        </div>
+        <div class="grid-child right">
+            <RouterView />
+        </div>
 
-  <RouterView />
+    </div>
 </template>
 
-<style scoped>
-
-nav {
-  height: 100%; /* 100% Full-height */
-  width: 0; /* 0 width - change this with JavaScript */
-  position: fixed; /* Stay in place */
-  z-index: 1; /* Stay on top */
-  top: 0; /* Stay at the top */
-  left: 0;
-  background-color: #111; /* Black*/
-  overflow-x: hidden; /* Disable horizontal scroll */
-  padding-top: 60px; /* Place content 60px from the top */
-  transition: 0.5s; /* 0.5 second transition effect to slide in the sidenav */
+<style>
+.grid-container {
+    display: grid;
+    grid-template-columns: 1fr 10fr;
+    grid-gap: 20px;
+}
+.bd-links-link {
+	padding: .1875rem .5rem;
+	margin-top: .125rem;
+	margin-left: 0.625rem;
+	color: var(--bs-body-color);
+	text-decoration: none;
+}
+.bd-links-group{
+    padding-left: .2rem;
+}
+.bd-links-link:hover, .bd-links-link:focus, .bd-links-link.router-link-active{
+	color: #fff;
+	background-color:#026D70;
+}
+.bd-links-link.router-link-active {
+	font-weight: 600;
 }
 
-nav a.router-link-exact-active {
-  color: var(--color-text);
-}
-
-nav a.router-link-exact-active:hover {
-  background-color: transparent;
-}
-
-nav a {
-  padding: 8px 8px 8px 32px;
-  text-decoration: none;
-  font-size: 25px;
-  color: #818181;
-  display: block;
-  transition: 0.3s;
-}
-
-nav a:first-of-type {
-  border: 0;
-}
-
-@media (min-width: 1024px) {
-  header {
-    display: flex;
-    place-items: center;
-    padding-right: calc(var(--section-gap) / 2);
-  }
-
-  .logo {
-    margin: 0 2rem 0 0;
-  }
-
-  header .wrapper {
-    display: flex;
-    place-items: flex-start;
-    flex-wrap: wrap;
-  }
-
-    /* Position and style the close button (top right corner) */
-  .sidenav .closebtn {
-    position: absolute;
-    top: 0;
-    right: 25px;
-    font-size: 36px;
-    margin-left: 50px;
-  }
-
-  /* Style page content - use this if you want to push the page content to the right when you open the side navigation */
-  #main {
-    transition: margin-left .5s;
-    padding: 20px;
-  }
-
-  /* On smaller screens, where height is less than 450px, change the style of the sidenav (less padding and a smaller font size) */
-  @media screen and (max-height: 450px) {
-    .sidenav {padding-top: 15px;}
-    .sidenav a {font-size: 18px;}
-  }
-
-}
 </style>
-<script>
-/* Set the width of the side navigation to 250px and the left margin of the page content to 250px */
-function openNav() {
-  document.getElementById("mySidenav").style.width = "250px";
-  document.getElementById("main").style.marginLeft = "250px";
-}
-
-/* Set the width of the side navigation to 0 and the left margin of the page content to 0 */
-function closeNav() {
-  document.getElementById("mySidenav").style.width = "0";
-  document.getElementById("main").style.marginLeft = "0";
-} 
-
-</script>
