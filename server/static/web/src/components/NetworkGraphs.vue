@@ -8,9 +8,8 @@ const props = defineProps({
 
 import { onMounted,ref } from 'vue';
 import TrafficLocation from '@/components/TrafficLocation.vue';
-import TrafficGeneric from '../components/TrafficGeneric.vue'
-import TrafficProtocol from '@/components/TrafficProtocol.vue';
-import TrafficService from '@/components/TrafficService.vue';
+import TrafficGeneric from '@/components/TrafficGeneric.vue';
+import TrafficMain from './TrafficMain.vue';
 
 
 const chart_period = ref('1d')
@@ -58,10 +57,11 @@ onMounted(() => {
             </ul>
             </div>
         </div>
-        <TrafficGeneric title_str="Traffic" v-if="stats.traffic" :data="stats.traffic[graph_unit]" :unit="graph_unit" />
+        <TrafficMain title_str="Traffic" v-if="stats.traffic" :data="stats.traffic[graph_unit]" :unit="graph_unit" />
+        <TrafficGeneric title_str="Attacks" v-if="stats.attacks" :data="stats.attacks" :unit="graph_unit"/>
         <TrafficLocation title_str="Location" v-if="stats.locations" :data="stats.locations" :unit="graph_unit"/>
-        <TrafficProtocol title_str="Protocols" v-if="stats.protocols" :data="stats.protocols" :unit="graph_unit"/>
-        <TrafficService title_str="Services" v-if="stats.services" :data="stats.services" :unit="graph_unit"/>
+        <TrafficGeneric title_str="Protocols" v-if="stats.protocols" :data="stats.protocols" :unit="graph_unit"/>
+        <TrafficGeneric title_str="Services" v-if="stats.services" :data="stats.services" :unit="graph_unit"/>
     </div>
 </template>
 

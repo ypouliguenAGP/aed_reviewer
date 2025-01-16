@@ -1,5 +1,5 @@
 <script setup>
-import TrafficGeneric from '../components/TrafficGeneric.vue'
+import TrafficGeneric from '../components/TrafficMain.vue'
 </script>
 
 <template>

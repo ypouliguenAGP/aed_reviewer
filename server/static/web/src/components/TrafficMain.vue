@@ -1,13 +1,14 @@
 <template>
-    <v-chart class="chart" :option="option" />
+  <v-chart class="chart" :option="option" />
 </template>
 
 <script setup>
 
+
 const props = defineProps({
   title_str: String,
   data: Object,
-  unit: String
+  unit: String,
 })
 import { use } from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
@@ -20,7 +21,7 @@ ToolboxComponent,
 GridComponent,
 } from 'echarts/components';
 import VChart, { THEME_KEY } from 'vue-echarts';
-import { ref, provide, watch } from 'vue';
+import { ref, provide, onMounted, watch, getCurrentInstance } from 'vue';
 
 use([
 CanvasRenderer,
@@ -36,26 +37,7 @@ LineChart,
 provide(THEME_KEY, 'light');
 
 function setOptions(){
-  const legend = Object.keys(props.data)
-  const series = []
-  for (const item of legend){
-    series.push({
-      name: item,
-      type: 'line',
-      lineStyle: {
-          normal: {
-            width: 1,
-          }
-        },  
-      showSymbol: false,
-      smooth: true,
-      stack: 'Total',
-      areaStyle: {},
-      data: props.data[item][props.unit]
-    })
-  }
-
-  const option = {
+  var option = {
     title: {
       text: props.title_str
     },
@@ -71,7 +53,7 @@ function setOptions(){
     legend: {
       orient: 'horizontal',
       bottom: 0,
-      data: legend
+      data: ['Passed', 'Dropped']
     },
     toolbox: {
       feature: {
@@ -95,19 +77,53 @@ function setOptions(){
         type: 'value'
       }
     ],
-    series: series
+    series: [
+      {
+        name: 'Passed',
+        type: 'line',
+        showSymbol: false,
+        smooth: true,
+        stack: 'Total',
+        color: [
+        '#8EC764'
+        ],
+        lineStyle: {
+          normal: {
+            width: 1,
+          }
+        },
+        areaStyle: {},
+        data: props.data['Passed']
+      },
+      {
+        name: 'Dropped',
+        type: 'line',
+        lineStyle: {
+          normal: {
+            width: 1,
+          }
+        },
+        smooth: true,
+        stack: 'Total',
+        color: [
+        '#CC4043'
+        ],
+        showSymbol: false,
+        areaStyle: {},
+        data: props.data['Dropped']
+      },
+    ]
   };
   return option
 }
+
 var option = setOptions()
 
-watch(() => props.unit, (first, second) => {
-  option = setOptions()
-});
 watch(() => props.data, (first, second) => {
   option = setOptions()
 });
 </script>
 
 <style scoped>
+    
 </style>

@@ -409,6 +409,8 @@ def getProtectionDetails(cursor, pgs, sts):
                 data['bps'] = row['bps']
             if row['pps'] is not None:
                 data['pps'] = row['pps']
+        if 'ipLocationPolicing' not in sts[row['server_type']]['protectionLevels'][config.PROTECTION_LEVEL[row['security_level']]]['ipLocationPolicing']:
+            continue
         sts[row['server_type']]['protectionLevels'][config.PROTECTION_LEVEL[row['security_level']]]['ipLocationPolicing']['countries'].append(data)
 
 

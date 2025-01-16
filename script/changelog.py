@@ -12,7 +12,7 @@ changes = {
 }
 
 def getLogs(pgs, sts):
-    conn_log = sqlite3.connect(f'{config.RESSOURCES_PATH}log.db')
+    conn_log = sqlite3.connect(f'{config.FOLDER_NAME}/tuba/log.db')
     cur_log = conn_log.cursor()
     # Protection Group
     cur_log.execute('select * from changelog where subsystem=="Protection Group"')

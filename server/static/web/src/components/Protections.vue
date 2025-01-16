@@ -5,6 +5,8 @@ const props = defineProps({
 })
 
 import { onMounted,ref } from 'vue';
+import ProtectionRates from '@/components/ProtectionRates.vue';
+
 
 
 const chart_period = ref('1d')
@@ -28,6 +30,8 @@ function humanUnits(value){
 <div id="protections">
     <h4>AIF</h4>
     <h4>Rates</h4>
+    <ProtectionRates :protections="protections" unit="pps"/>
+    <ProtectionRates :protections="protections" unit="bps"/>
     <div class="row">
         <div class="col">Type</div>
         <div class="col">Low</div>
@@ -110,7 +114,7 @@ function humanUnits(value){
         </div>
         
     </div>
-    
+
     <h4>TCP</h4>
 
 </div>

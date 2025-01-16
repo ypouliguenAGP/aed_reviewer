@@ -1,6 +1,7 @@
 <script>
 import PGAlertModal from '../components/PGAlertModal.vue'
 import NetworkGraphs from '@/components/NetworkGraphs.vue';
+import PGChanges from '@/components/PGChanges.vue';
 import Protections from '@/components/Protections.vue';
 
 export default {
@@ -11,6 +12,7 @@ export default {
     PGAlertModal,
     NetworkGraphs,
     Protections,
+    PGChanges
   },
   data() {
     return {
@@ -95,7 +97,7 @@ export default {
 </script>
 
 <template>
-  <div class="container">
+  <div class="container-fluid">
     <PGAlertModal :alerts="pg.alerts" v-if="PGAlertModalVisible" />
     <div class="row">
       <div class="col-3">Name:</div>
@@ -103,7 +105,7 @@ export default {
     </div>
     <div class="row" v-if="pg.protections">
       <div class="col-3">Protection:</div>
-      <div class="col">{{ pg.protections.serverName }}</div>
+      <div class="col">{{ pg.protections.serverName }} ({{ pg.server_type }})</div>
     </div>
     <div class="row" v-if="pg.prefixes">
       <div class="col-3">Prefixes:</div>
@@ -148,9 +150,13 @@ export default {
       <li class="nav-item">
         <a class="nav-link" :class="selected_tab == 'protections' ? 'active': ''" href="#" @click="selected_tab = 'protections'">Protections</a>
       </li>
+      <li class="nav-item">
+        <a class="nav-link" :class="selected_tab == 'changes' ? 'active': ''" href="#" @click="selected_tab = 'changes'">Changes</a>
+      </li>
     </ul>
     <NetworkGraphs v-if="pg.stats && selected_tab == 'stats'" :pg_id="pg_id" />
     <Protections v-if="pg.protections && selected_tab == 'protections'" :protections="pg.protections"/>
+    <PGChanges v-if="pg.server_type && selected_tab == 'changes'" :pg_id="pg_id"/>
 </div>
 
 

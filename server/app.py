@@ -48,7 +48,7 @@ def prepare_traffic(pg_id, period='1d'):
         # Services
         if os.path.exists(f"{app.config['SOURCE_PATH']}/stats/attacks/{pg_id}_{period}.json"):
             with open(f"{app.config['SOURCE_PATH']}/stats/attacks/{pg_id}_{period}.json") as f:
-                stats['attacks'] = json.load(f)['attack-categories']
+                stats['attacks'] = prepare_attack_data(json.load(f)['attack-categories']['timeseries'])
         # Locations
         if os.path.exists(f"{app.config['SOURCE_PATH']}/stats/locations/{pg_id}_{period}.json"):
             with open(f"{app.config['SOURCE_PATH']}/stats/locations/{pg_id}_{period}.json") as f:
@@ -79,6 +79,18 @@ def prepare_traffic_data(traffic):
         data['bps']['Dropped'].append([item[0]*1000,traffic['bpsDropped'][index]])
         data['pps']['Passed'].append([item[0]*1000,traffic['ppsPassed'][index]])
         data['pps']['Dropped'].append([item[0]*1000,traffic['ppsDropped'][index]])
+    return data
+
+def prepare_attack_data(traffic):
+    data = {}
+    for attack in traffic['data']:
+        data[attack['acName']] = {
+            'bps': [],
+            'pps': [],
+        }
+        for i in range(len(traffic['times'])):
+            data[attack['acName']]['pps'].append([traffic['times'][i][0]*1000,attack['ppsDropped'][i]])
+            data[attack['acName']]['bps'].append([traffic['times'][i][0]*1000,attack['bpsDropped'][i]])
     return data
 
 def prepare_location_data(traffic):
@@ -161,3 +173,27 @@ def crawlers_get():
 @app.get('/api/notifications')
 def notifications_get():
     return send_file(f"{app.config['SOURCE_PATH']}/notification_dests.json")
+
+
+@app.get('/api/protection_groups/<string:pg_id>/changes/')
+def pg_logs_get(pg_id):
+    if not os.path.exists(f"{app.config['SOURCE_PATH']}/changes.json"):
+        return {'success': False}
+    # Find associated Server Type
+    with open(f"{app.config['SOURCE_PATH']}/pgs.json") as f:
+        pgs = json.load(f)
+    if pg_id not in pgs:
+        return {'success': False, 'message': f'PG {pg_id} not found'}
+    st_id = pgs[pg_id]['server_type']
+    print(f"Associated Server Type is {st_id}")
+
+    with open(f"{app.config['SOURCE_PATH']}/changes.json") as f:
+            data = json.load(f)
+    events = []
+    if pg_id in data['pg']:
+        events += data['pg'][pg_id]
+    print(type(st_id))
+    if f"{st_id}" in data['st']:
+        print(f"{len(data['st'][f"{st_id}"])} Changes found for ST {st_id}")
+        events += data['st'][f"{st_id}"]
+    return events

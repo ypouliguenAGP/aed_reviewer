@@ -516,7 +516,7 @@ with open(f"{config.EXPORT_PATH}{config.LEGACY}export.owh", "w") as outfile:
 with open(f"{config.EXPORT_PATH}interfaces.json", "w") as outfile:
     json.dump(interfaces, outfile, indent=config.EXPORT_INDENT)
 
-with open(f"{config.EXPORT_PATH}export.log", "w") as outfile:
+with open(f"{config.EXPORT_PATH}changes.json", "w") as outfile:
     json.dump(changes, outfile, indent=config.EXPORT_INDENT)
 
 with open(f"{config.EXPORT_PATH}webcrawlers.json", "w") as outfile:
