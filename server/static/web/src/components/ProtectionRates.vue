@@ -33,6 +33,7 @@ LineChart,
 ]);
 
 provide(THEME_KEY, 'light');
+const levels = ['low','medium','high']
 
 function setOptions(){
     const posList = [
@@ -80,27 +81,112 @@ function setOptions(){
             max: 100
         }
     };
+    var rate_protections = {
+        'Total': 'zombie',
+        'Frag': 'fragmentation',
+        'UDP': 'udpFlood',
+        'ICMP': 'detectIcmp'
+    }
+    var legend = ['Total', 'UDP', 'ICMP', 'Frag']
+    var series = []
 
-    const main_data = [
-    props.protections.protectionLevels.low.zombie[props.unit],
-    props.protections.protectionLevels.medium.zombie[props.unit],
-    props.protections.protectionLevels.high.zombie[props.unit]
-    ]
-    const fragment_data = [
-    props.protections.protectionLevels.low.fragmentation[props.unit],
-    props.protections.protectionLevels.medium.fragmentation[props.unit],
-    props.protections.protectionLevels.high.fragmentation[props.unit]
-    ] 
-    const icmp_data = [
-    props.protections.protectionLevels.low.detectIcmp[props.unit],
-    props.protections.protectionLevels.medium.detectIcmp[props.unit],
-    props.protections.protectionLevels.high.detectIcmp[props.unit]
-    ]
-    const udp_data = [
-    props.protections.protectionLevels.low.udpFlood[props.unit],
-    props.protections.protectionLevels.medium.udpFlood[props.unit],
-    props.protections.protectionLevels.high.udpFlood[props.unit]
-    ]
+    for (const [key, protection] of Object.entries(rate_protections)) {
+        var data = []
+        for (const level of levels){
+            if (props.protections.protectionLevels[level][protection].enabled) data.push(props.protections.protectionLevels[level][protection][props.unit])
+            else data.push('')
+        }
+        series.push({
+            name: key,
+            type: 'bar',
+            barGap: 0,
+            label: labelOption,
+            emphasis: {
+                focus: 'series'
+            },
+            data: data
+        })
+    }
+    
+    if (props.protections.protectionLevels.common.zombie.flexible['1'].filter[0] != ""){
+        var data = []
+        for (const level of levels){
+            if (props.protections.protectionLevels[level].zombie.flexible['1'].enabled) data.push(props.protections.protectionLevels[level].zombie.flexible['1'][props.unit])
+            else data.push('')
+        }
+        series.splice(1, 0, {
+            name: 'Flex1',
+            type: 'bar',
+            barGap: 0,
+            label: labelOption,
+            emphasis: {
+                focus: 'series'
+            },
+            data: data
+        })
+        legend.splice(1, 0, 'Flex1');
+    }
+    if (props.protections.protectionLevels.common.zombie.flexible['2'].filter[0] != ""){
+        for (const level of levels){
+            if (props.protections.protectionLevels[level].zombie.flexible['2'].enabled) data.push(props.protections.protectionLevels[level].zombie.flexible['2'][props.unit])
+            else data.push('')
+        }
+        series.splice(1, 0, {
+            name: 'Flex2',
+            type: 'bar',
+            barGap: 0,
+            label: labelOption,
+            emphasis: {
+                focus: 'series'
+            },
+            data: data
+        })
+        legend.splice(2, 0, 'Flex2');
+    }
+    // series.push({
+    //     name: 'Frag',
+    //     type: 'bar',
+    //     barGap: 0,
+    //     label: labelOption,
+    //     emphasis: {
+    //         focus: 'series'
+    //     },
+    //     data: [
+    //     props.protections.protectionLevels.low.fragmentation[props.unit],
+    //     props.protections.protectionLevels.medium.fragmentation[props.unit],
+    //     props.protections.protectionLevels.high.fragmentation[props.unit]
+    //     ]
+    // })
+    // series.push({
+    //     name: 'UDP',
+    //     type: 'bar',
+    //     barGap: 0,
+    //     label: labelOption,
+    //     emphasis: {
+    //         focus: 'series'
+    //     },
+    //     data: [
+    //     props.protections.protectionLevels.low.udpFlood[props.unit],
+    //     props.protections.protectionLevels.medium.udpFlood[props.unit],
+    //     props.protections.protectionLevels.high.udpFlood[props.unit]
+    //     ]
+    // })
+    // series.push({
+    //     name: 'ICMP',
+    //     type: 'bar',
+    //     barGap: 0,
+    //     label: labelOption,
+    //     emphasis: {
+    //         focus: 'series'
+    //     },
+    //     data: [
+    //     props.protections.protectionLevels.low.detectIcmp[props.unit],
+    //     props.protections.protectionLevels.medium.detectIcmp[props.unit],
+    //     props.protections.protectionLevels.high.detectIcmp[props.unit]
+    //     ]
+    // })
+
+    
 
   const option = {
     title: {
@@ -113,7 +199,7 @@ function setOptions(){
         }
     },
     legend: {
-        data: ['Total', 'UDP', 'ICMP', 'Frag']
+        data: legend
     },
     toolbox: {
         show: true,
@@ -140,45 +226,7 @@ function setOptions(){
         type: 'value'
         }
     ],
-    series: [
-        {
-        name: 'Total',
-        type: 'bar',
-        barGap: 0,
-        label: labelOption,
-        emphasis: {
-            focus: 'series'
-        },
-        data: main_data
-        },
-        {
-        name: 'UDP',
-        type: 'bar',
-        label: labelOption,
-        emphasis: {
-            focus: 'series'
-        },
-        data: udp_data
-        },
-        {
-        name: 'ICMP',
-        type: 'bar',
-        label: labelOption,
-        emphasis: {
-            focus: 'series'
-        },
-        data: icmp_data
-        },
-        {
-        name: 'Frag',
-        type: 'bar',
-        label: labelOption,
-        emphasis: {
-            focus: 'series'
-        },
-        data: fragment_data
-        }
-    ]
+    series: series
    };
   return option
 }

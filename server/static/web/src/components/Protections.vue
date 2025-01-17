@@ -16,6 +16,7 @@ const units = ref([
       "M",
       "G",
 ])
+const levels = ref(['low','medium','high'])
 function humanUnits(value){
       if (value < 1000) return Math.max(value)
       let i = -1;
@@ -40,21 +41,17 @@ function humanUnits(value){
     </div>
     <div class="row">
         <div class="col">Main</div>
-        <div class="col">
-            <template v-if="protections.protectionLevels.low.zombie.bps == 0">/<br/></template>
-            <template v-else>{{humanUnits(protections.protectionLevels.low.zombie.bps)}}bps</template>
-            
-            {{humanUnits(protections.protectionLevels.low.zombie.pps)}}pps
-        </div>
-        <div class="col">
-            {{humanUnits(protections.protectionLevels.medium.zombie.bps)}}bps<br/>
-            {{humanUnits(protections.protectionLevels.medium.zombie.pps)}}pps
-            <span v-if="protections.protectionLevels.medium.zombie.bps != 0 && protections.protectionLevels.medium.zombie.pps != 0"><br/>AVG Size: {{ protections.protectionLevels.medium.zombie.bps/(protections.protectionLevels.medium.zombie.pps*8) }}B</span>
-        </div>
-        <div class="col">
-            {{humanUnits(protections.protectionLevels.high.zombie.bps)}}bps<br/>
-            {{humanUnits(protections.protectionLevels.high.zombie.pps)}}pps
-            <span v-if="protections.protectionLevels.high.zombie.bps != 0 && protections.protectionLevels.high.zombie.pps != 0"><br/>AVG Size: {{ protections.protectionLevels.high.zombie.bps/(protections.protectionLevels.high.zombie.pps*8) }}B</span>
+        <div class="col" v-for="level in levels">
+            <template v-if="protections.protectionLevels[level].zombie.enabled">
+                <template v-if="protections.protectionLevels[level].zombie.bps == 0">/<br/></template>
+                <template v-else>{{humanUnits(protections.protectionLevels[level].zombie.bps)}}bps</template>
+                <template v-if="protections.protectionLevels[level].zombie.pps == 0">/<br/></template>
+                <template v-else>{{humanUnits(protections.protectionLevels[level].zombie.bps)}}pps</template>
+                <span v-if="protections.protectionLevels[level].zombie.bps != 0 && protections.protectionLevels[level].zombie.pps != 0"><br/>AVG Size: {{ protections.protectionLevels[level].zombie.bps/(protections.protectionLevels[level].zombie.pps*8) }}B</span>
+            </template>
+            <template v-else>
+                /
+            </template>
         </div>
     </div>
     <div class="row mt-2">

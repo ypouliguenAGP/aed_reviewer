@@ -24,7 +24,7 @@ function array_reorder(array){
 }
 function formatDate(dateString) {
     const date = new Date(dateString);
-    return new Intl.DateTimeFormat('default', {dateStyle: 'long'}).format(date);
+    return new Intl.DateTimeFormat('en-GB', {dateStyle: 'medium', timeStyle: 'short'}).format(date);
 }
 onMounted(() => {
     loadLogs()
