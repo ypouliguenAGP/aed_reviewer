@@ -1,7 +1,8 @@
-from flask import Flask, send_file, Response
+from flask import Flask, send_file, Response, make_response
 from datetime import datetime
 import json
 import os
+import gzip
 
 app = Flask(__name__,
             static_url_path='', 
@@ -175,6 +176,8 @@ def notifications_get():
     return send_file(f"{app.config['SOURCE_PATH']}/notification_dests.json")
 
 
+
+
 @app.get('/api/protection_groups/<string:pg_id>/changes/')
 def pg_logs_get(pg_id):
     if not os.path.exists(f"{app.config['SOURCE_PATH']}/changes.json"):
@@ -197,3 +200,30 @@ def pg_logs_get(pg_id):
         print(f"{len(data['st'][f"{st_id}"])} Changes found for ST {st_id}")
         events += data['st'][f"{st_id}"]
     return events
+
+
+@app.get('/api/protection_groups/<string:pg_id>/dumps/')
+def pg_dumps_get_compressed(pg_id):
+    if not os.path.exists(f"{app.config['SOURCE_PATH']}/stats/dumps/{pg_id}.json"):
+        return {'success': False}
+    with open(f"{app.config['SOURCE_PATH']}/stats/dumps/{pg_id}.json") as f:
+        data = json.load(f)
+
+    content = gzip.compress(json.dumps(data).encode('utf8'), 5)
+    response = make_response(content)
+    response.headers['Content-length'] = len(content)
+    response.headers['Content-Encoding'] = 'gzip'
+    return response
+
+# @app.get('/api/protection_groups/<string:pg_id>/dumps/')
+# def pg_dumps_get(pg_id):
+#     if not os.path.exists(f"{app.config['SOURCE_PATH']}/stats/dumps/{pg_id}.json"):
+#         return {'success': False}
+#     return send_file(f"{app.config['SOURCE_PATH']}/stats/dumps/{pg_id}.json")
+
+@app.get('/api/protection_groups/<string:pg_id>/dump_stats/')
+def pg_dump_stats_get(pg_id):
+    if not os.path.exists(f"{app.config['SOURCE_PATH']}/stats/dumps/{pg_id}_stats.json"):
+        print(f"{app.config['SOURCE_PATH']}/stats/dumps/{pg_id}_stats.json does not exit")
+        return {'success': False}
+    return send_file(f"{app.config['SOURCE_PATH']}/stats/dumps/{pg_id}_stats.json")

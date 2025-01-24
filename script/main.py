@@ -6,6 +6,7 @@ import datetime
 from changelog import getLogs
 from helpers import get_results, intToBool, get_results_list
 from protections import getProtectionDetails
+from dumps import processPacketDump, packetStats
 import config
 import argparse
 import os
@@ -474,8 +475,6 @@ def formater(name, source):
 
 # Writting to Files
 
-
-
 if not os.path.exists(config.EXPORT_PATH):
     os.makedirs(config.EXPORT_PATH)
 
@@ -538,3 +537,13 @@ with open(f"{config.EXPORT_PATH}http_proxy.json", "w") as outfile:
 
 with open(f"{config.EXPORT_PATH}notification_dests.json", "w") as outfile:
     json.dump(notification_dests, outfile, indent=config.EXPORT_INDENT)
+
+if not os.path.exists(f"{config.EXPORT_PATH}/stats/dumps/"):
+    os.makedirs(f"{config.EXPORT_PATH}/stats/dumps/")
+for pg_id in pgs:
+    entries = processPacketDump(pg_id)
+    print(f"{len(entries)} Packets for PG {pg_id}")
+    with open(f"{config.EXPORT_PATH}/stats/dumps/{pg_id}.json", "w") as outfile:
+        json.dump(entries, outfile, indent=config.EXPORT_INDENT)
+    with open(f"{config.EXPORT_PATH}/stats/dumps/{pg_id}_stats.json", "w") as outfile:
+        json.dump(packetStats(entries), outfile, indent=config.EXPORT_INDENT)

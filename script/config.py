@@ -6,6 +6,8 @@ FOLDER_NAME = ''
 EXPORT_PATH = 'exports/'
 EXPORT_INDENT=2
 
+MAX_DUMPS_STATS_ELEMENTS = 12
+
 PROTECTION_LEVEL = {
     1: 'low',
     2: 'medium',
@@ -88,4 +90,9 @@ PARENT_TYPE = {
     5: "VPN Server",
     6: "RLogin Server",
     7: "File Server",
+}
+
+PROTO = {
+    6: 'TCP',
+    17: 'UDP'
 }
