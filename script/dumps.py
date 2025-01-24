@@ -49,8 +49,8 @@ def processPacketDump(pg_id):
             elif line.startswith(' tcp '):
                 result = re.search("^ tcp ((:?.|[A-Z]){8}) .+", line)
                 entry['tcp_flags'] = result.groups()[0].replace('.', '')
-            elif 'by pktengine' in line:
-                result = re.search("^((:?pass|drop)) by pktengine", line)
+            elif ' by ' in line:
+                result = re.search("^((:?pass|drop)) by (:?pktengine|countermeasure|blacklist)", line)
                 entry['action'] = result.groups()[0]
             elif 'geo address matches' in line:
                 result = re.search(" ([A-Z]{2}) +", line)
