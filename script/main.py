@@ -503,7 +503,8 @@ with open(f"{config.EXPORT_PATH}{config.LEGACY}export.iwh", "w") as outfile:
     json.dump({"allowed-hosts": inbound['allowed-hosts']}, outfile, indent=config.EXPORT_INDENT)
 with open(f"{config.EXPORT_PATH}{config.LEGACY}export.mfl", "w") as outfile:
     json.dump(inbound['mfl'], outfile, indent=config.EXPORT_INDENT)
-
+with open(f"{config.EXPORT_PATH}/master_filter_list.json", "w") as outfile:
+    json.dump(inbound['mfl'], outfile, indent=config.EXPORT_INDENT)
 
 with open(f"{config.EXPORT_PATH}{config.LEGACY}export.obh", "w") as outfile:
     json.dump({"denied-hosts": outbound['denied-hosts']}, outfile, indent=config.EXPORT_INDENT)

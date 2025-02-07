@@ -1,0 +1,1 @@
+function i(t){const e=new Date(t);return new Intl.DateTimeFormat("en-GB",{dateStyle:"medium",timeStyle:"short"}).format(e)}function o(t){const e=["k","M","G"];if(t<1e3)return Math.max(t);let n=-1;do t=t/1e3,n++;while(t>=1e3);return Math.max(t).toFixed(1)+e[n]}export{o as h,i as u};

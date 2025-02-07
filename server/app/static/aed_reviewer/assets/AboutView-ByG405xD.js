@@ -1,0 +1,1 @@
+import{_ as s,k as t,l as o,f as a}from"./index-CifC2ei4.js";const n={},r={class:"about"};function c(_,e){return a(),t("div",r,e[0]||(e[0]=[o("h1",null,"This is an about page",-1)]))}const l=s(n,[["render",c]]);export{l as default};

@@ -88,8 +88,10 @@ def getProtectionDetails(cursor, pgs, sts):
         }
         sts[row['server_type']]['protectionLevels']['common']['zombie']['flexible'][f"{row['zombie_id']}"] = {
             "description": row['description'],
-            "filter": [f"{row['filter']}"],
-        }        
+            "filter": [],
+        }
+        for filter in row['filter'].splitlines():
+            sts[row['server_type']]['protectionLevels']['common']['zombie']['flexible'][f"{row['zombie_id']}"]["filter"].append(filter)
 
 
     cursor.execute('select * from cm_flex_zombie_rate')
@@ -377,6 +379,7 @@ def getProtectionDetails(cursor, pgs, sts):
     cursor.execute('select * from cm_geoip')
     results = get_results(cursor)
     for row in results:
+
         if row['server_type'] not in sts:
             continue
         if row['enabled'] == 0:
@@ -399,7 +402,12 @@ def getProtectionDetails(cursor, pgs, sts):
             continue
         if 'ipLocationPolicing' not in sts[row['server_type']]['protectionLevels'][config.PROTECTION_LEVEL[row['security_level']]]:
             continue
+        if row['action'] == 'other': # Countermesure not enabled in security level
+            continue
         data = { "country": row['country']}
+        if row['server_type'] == 68:
+            print('-------------- COUNTRY')
+            print(row)
         if row['action'] == 'allow_all':
             data['allow'] = True
         elif row['action'] == 'drop_all':
@@ -409,10 +417,14 @@ def getProtectionDetails(cursor, pgs, sts):
                 data['bps'] = row['bps']
             if row['pps'] is not None:
                 data['pps'] = row['pps']
-        if 'ipLocationPolicing' not in sts[row['server_type']]['protectionLevels'][config.PROTECTION_LEVEL[row['security_level']]]['ipLocationPolicing']:
+        if row['server_type'] == 68:
+            print(data)
+        if 'ipLocationPolicing' not in sts[row['server_type']]['protectionLevels'][config.PROTECTION_LEVEL[row['security_level']]]:
             continue
+        if sts[row['server_type']]['protectionLevels'][config.PROTECTION_LEVEL[row['security_level']]]['ipLocationPolicing']['enabled'] == False:
+            continue
+        print(f"ipLocationPolicing not present in {sts[row['server_type']]['protectionLevels'][config.PROTECTION_LEVEL[row['security_level']]]['ipLocationPolicing']}")
         sts[row['server_type']]['protectionLevels'][config.PROTECTION_LEVEL[row['security_level']]]['ipLocationPolicing']['countries'].append(data)
-
 
     # Reputation
     cursor.execute('select * from cm_reputation')
