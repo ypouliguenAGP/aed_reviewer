@@ -13,11 +13,11 @@ import TrafficMain from './TrafficMain.vue';
 
 
 const chart_period = ref('1d')
-const graph_unit = ref('bps')
+const graph_unit = ref('pps')
 const stats = ref({})
 function loadPeriod(new_chart_period){
     chart_period.value = new_chart_period
-    fetch('http://localhost:5000/api/protection_groups/'+props.pg_id+'/traffic/'+chart_period.value)
+    fetch('http://localhost:5000/aed_reviewer/api/protection_groups/'+props.pg_id+'/traffic/'+chart_period.value)
     .then(response => response.json())
     .then(data => stats.value = data)
     console.log(chart_period.value)
@@ -29,10 +29,10 @@ onMounted(() => {
 
 
 <template>
-    <div id="network-graphs" class="container mt-2">
-        <div class="row">
+    <div id="network-graphs" class="mt-2">
+        <div class="row mb-2">
             <div class="col">
-            <ul class="nav nav-pills nav-fill">
+            <ul class="nav nav-pills nav-fill nav-pills-sm">
                 <li class="nav-item">
                 <button class="nav-link" :class="chart_period == '7d' ? 'active': ''" @click="loadPeriod('7d')">7 Days</button>
                 </li>
@@ -47,7 +47,7 @@ onMounted(() => {
             <div class="col">
             </div>
             <div class="col">
-            <ul class="nav nav-pills nav-fill">
+            <ul class="nav nav-pills nav-fill nav-pills-sm">
                 <li class="nav-item">
                 <button class="nav-link" :class="graph_unit == 'pps' ? 'active': ''" @click="graph_unit='pps'">PPS</button>
                 </li>

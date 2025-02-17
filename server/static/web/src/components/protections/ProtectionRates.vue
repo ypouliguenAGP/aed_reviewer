@@ -108,7 +108,7 @@ function setOptions(){
         })
     }
     
-    if (props.protections.protectionLevels.common.zombie.flexible['1'].filter[0] != ""){
+    if (props.protections.protectionLevels.common.zombie.flexible['1'].filter.length > 0){
         var data = []
         for (const level of levels){
             if (props.protections.protectionLevels[level].zombie.flexible['1'].enabled) data.push(props.protections.protectionLevels[level].zombie.flexible['1'][props.unit])
@@ -126,12 +126,13 @@ function setOptions(){
         })
         legend.splice(1, 0, 'Flex1');
     }
-    if (props.protections.protectionLevels.common.zombie.flexible['2'].filter[0] != ""){
+    if (props.protections.protectionLevels.common.zombie.flexible['2'].filter.length > 0){
+        data = []
         for (const level of levels){
             if (props.protections.protectionLevels[level].zombie.flexible['2'].enabled) data.push(props.protections.protectionLevels[level].zombie.flexible['2'][props.unit])
             else data.push('')
         }
-        series.splice(1, 0, {
+        series.splice(2, 0, {
             name: 'Flex2',
             type: 'bar',
             barGap: 0,
@@ -199,7 +200,8 @@ function setOptions(){
         }
     },
     legend: {
-        data: legend
+        data: legend,
+        top: 'bottom'
     },
     toolbox: {
         show: true,

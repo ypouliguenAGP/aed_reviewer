@@ -405,9 +405,6 @@ def getProtectionDetails(cursor, pgs, sts):
         if row['action'] == 'other': # Countermesure not enabled in security level
             continue
         data = { "country": row['country']}
-        if row['server_type'] == 68:
-            print('-------------- COUNTRY')
-            print(row)
         if row['action'] == 'allow_all':
             data['allow'] = True
         elif row['action'] == 'drop_all':
@@ -417,13 +414,10 @@ def getProtectionDetails(cursor, pgs, sts):
                 data['bps'] = row['bps']
             if row['pps'] is not None:
                 data['pps'] = row['pps']
-        if row['server_type'] == 68:
-            print(data)
         if 'ipLocationPolicing' not in sts[row['server_type']]['protectionLevels'][config.PROTECTION_LEVEL[row['security_level']]]:
             continue
         if sts[row['server_type']]['protectionLevels'][config.PROTECTION_LEVEL[row['security_level']]]['ipLocationPolicing']['enabled'] == False:
             continue
-        print(f"ipLocationPolicing not present in {sts[row['server_type']]['protectionLevels'][config.PROTECTION_LEVEL[row['security_level']]]['ipLocationPolicing']}")
         sts[row['server_type']]['protectionLevels'][config.PROTECTION_LEVEL[row['security_level']]]['ipLocationPolicing']['countries'].append(data)
 
     # Reputation

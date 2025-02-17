@@ -2,117 +2,117 @@
 
 const props = defineProps({
   protections: Object,
+  pg_id: String
 })
 
 import { onMounted,ref } from 'vue';
-import ProtectionRates from '@/components/ProtectionRates.vue';
-
-
-
-const chart_period = ref('1d')
-const graph_unit = ref('bps')
-const units = ref([
-      "k",
-      "M",
-      "G",
-])
+import ProtectionRates from '@/components/protections/ProtectionRates.vue';
+import ProtectionFL from './protections/ProtectionFL.vue';
+import ProtectionAIF from './protections/ProtectionAIF.vue';
+import ProtectionTCP from './protections/ProtectionTCP.vue';
+import ProtectionTLS from './protections/ProtectionTLS.vue';
+import ProtectionLP from './protections/ProtectionLP.vue';
+import ProtectionUDP from './protections/ProtectionUDP.vue';
+import ProtectionShaping from './protections/ProtectionShaping.vue';
 const levels = ref(['low','medium','high'])
-function humanUnits(value){
-      if (value < 1000) return Math.max(value)
-      let i = -1;
-      do {
-        value = value / 1000;
-        i++;
-      } while (value >= 1000);
-      return Math.max(value).toFixed(1) + units.value[i];
-}
+const selected_tab = ref('rates')
+
+
 </script>
 <template>
-<div id="protections">
-    <h4>AIF</h4>
-    <h4>Rates</h4>
-    <ProtectionRates :protections="protections" unit="pps"/>
-    <ProtectionRates :protections="protections" unit="bps"/>
-    <div class="row">
-        <div class="col">Type</div>
-        <div class="col">Low</div>
-        <div class="col">Medium</div>
-        <div class="col">High</div>
+<div id="protections" class="mt-3">
+    <ul class="nav nav-tabs">
+      <li class="nav-item">
+        <a class="nav-link" :class="selected_tab == 'filter_list' ? 'active': ''" href="#" @click="selected_tab = 'filter_list'">Filter List</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" :class="selected_tab == 'aif' ? 'active': ''" href="#" @click="selected_tab = 'aif'">AIF</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" :class="selected_tab == 'rates' ? 'active': ''" href="#" @click="selected_tab = 'rates'">Rates</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" :class="selected_tab == 'tcp' ? 'active': ''" href="#" @click="selected_tab = 'tcp'">TCP</a>
+      </li>
+      <li class="nav-item" v-if="protections['protectionLevels']['low']['dnsMalform']">
+        <a class="nav-link" :class="selected_tab == 'udp' ? 'active': ''" href="#" @click="selected_tab = 'udp'">UDP</a>
+      </li>
+      <li class="nav-item" v-if="protections['protectionLevels']['low']['tlsMalformed']">
+        <a class="nav-link" :class="selected_tab == 'tls' ? 'active': ''" href="#" @click="selected_tab = 'tls'">TLS</a>
+      </li>
+      <li class="nav-item" v-if="protections['protectionLevels']['low']['shaping']">
+        <a class="nav-link" :class="selected_tab == 'shaping' ? 'active': ''" href="#" @click="selected_tab = 'shaping'">Shaping</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" :class="selected_tab == 'location_policing' ? 'active': ''" href="#" @click="selected_tab = 'location_policing'">IP Location Policing</a>
+      </li>
+    </ul>
+    <div v-if="selected_tab == 'filter_list'">
+        <ProtectionFL :levels="levels" :protections="protections"/>
     </div>
-    <div class="row">
-        <div class="col">Main</div>
-        <div class="col" v-for="level in levels">
-            <template v-if="protections.protectionLevels[level].zombie.enabled">
-                <template v-if="protections.protectionLevels[level].zombie.bps == 0">/<br/></template>
-                <template v-else>{{humanUnits(protections.protectionLevels[level].zombie.bps)}}bps</template>
-                <template v-if="protections.protectionLevels[level].zombie.pps == 0">/<br/></template>
-                <template v-else>{{humanUnits(protections.protectionLevels[level].zombie.bps)}}pps</template>
-                <span v-if="protections.protectionLevels[level].zombie.bps != 0 && protections.protectionLevels[level].zombie.pps != 0"><br/>AVG Size: {{ protections.protectionLevels[level].zombie.bps/(protections.protectionLevels[level].zombie.pps*8) }}B</span>
-            </template>
-            <template v-else>
-                /
-            </template>
-        </div>
+    <div v-if="selected_tab == 'aif'">
+        <ProtectionAIF :levels="levels" :protections="protections"/>
     </div>
-    <div class="row mt-2">
-        <div class="col">UDP</div>
-        <div class="col">
-            {{humanUnits(protections.protectionLevels.low.udpFlood.bps)}}bps<br/>
-            {{humanUnits(protections.protectionLevels.low.udpFlood.pps)}}pps
-            <span v-if="protections.protectionLevels.low.udpFlood.bps != 0 && protections.protectionLevels.low.udpFlood.pps != 0"><br/>AVG Size: {{ protections.protectionLevels.low.udpFlood.bps/(protections.protectionLevels.low.udpFlood.pps*8) }}B</span>
+    <div v-if="selected_tab == 'tcp'">
+        <ProtectionTCP :levels="levels" :protections="protections"/>
+    </div>
+    <div v-if="selected_tab == 'udp'">
+        <ProtectionUDP :levels="levels" :protections="protections"/>
+    </div>
+    <div v-if="selected_tab == 'tls'">
+        <ProtectionTLS :levels="levels" :protections="protections"/>
+    </div>
+    <div v-if="selected_tab == 'shaping'">
+        <ProtectionShaping :levels="levels" :protections="protections" />
+    </div>
+    <div v-if="selected_tab == 'location_policing'">
+        <ProtectionLP :levels="levels" :protections="protections" :pg_id="pg_id"/>
+    </div>
+    
+    <div v-if="selected_tab == 'rates'">
+        <div class="row">
+            <div class="col col-12 col-xl-6">
+                <ProtectionRates :protections="protections" unit="pps"/>
+            </div>
+            <div class="col col-12 col-xl-6">
+                <ProtectionRates :protections="protections" unit="bps"/>
+            </div>
         </div>
-        <div class="col">
-            {{humanUnits(protections.protectionLevels.medium.udpFlood.bps)}}bps<br/>
-            {{humanUnits(protections.protectionLevels.medium.udpFlood.pps)}}pps
-            <span v-if="protections.protectionLevels.medium.udpFlood.bps != 0 && protections.protectionLevels.medium.udpFlood.pps != 0"><br/>AVG Size: {{ protections.protectionLevels.medium.udpFlood.bps/(protections.protectionLevels.medium.udpFlood.pps*8) }}B</span>
-        </div>
-        <div class="col">
-            {{humanUnits(protections.protectionLevels.high.udpFlood.bps)}}bps<br/>
-            {{humanUnits(protections.protectionLevels.high.udpFlood.pps)}}pps
-            <span v-if="protections.protectionLevels.high.udpFlood.bps != 0 && protections.protectionLevels.high.udpFlood.pps != 0"><br/>AVG Size: {{ protections.protectionLevels.high.udpFlood.bps/(protections.protectionLevels.high.udpFlood.pps*8) }}B</span>
+        <div v-if="protections['protectionLevels']['common']['zombie']['flexible']['1']['filter'].length > 0 || protections['protectionLevels']['common']['zombie']['flexible']['2']['filter'].length > 0">
+            <h4>Flexibles</h4>
+        
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Description</th>
+                        <th>Filter</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-if="protections['protectionLevels']['common']['zombie']['flexible']['1']['filter'].length > 0">
+                        <th>1</th>
+                        <td>{{protections['protectionLevels']['common']['zombie']['flexible']['1']['description']}}</td>
+                        <td class="fw-light">
+                            <span v-for="statement in protections['protectionLevels']['common']['zombie']['flexible']['1']['filter']">
+                                {{ statement }}<br/>
+                            </span>{{}}
+                        </td>
+                    </tr>
+                    <tr v-if="protections['protectionLevels']['common']['zombie']['flexible']['2']['filter'].length > 0">
+                        <th>2</th>
+                        <td>{{protections['protectionLevels']['common']['zombie']['flexible']['2']['description']}}</td>
+                        <td class="fw-light">
+                            <span v-for="statement in protections['protectionLevels']['common']['zombie']['flexible']['2']['filter']">
+                                {{ statement }}<br/>
+                            </span>{{}}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>    
         </div>
         
     </div>
-    <div class="row mt-2">
-        <div class="col">ICMP</div>
-        <div class="col">
-            {{humanUnits(protections.protectionLevels.low.detectIcmp.bps)}}bps<br/>
-            {{humanUnits(protections.protectionLevels.low.detectIcmp.pps)}}pps
-            <span v-if="protections.protectionLevels.low.detectIcmp.bps != 0 && protections.protectionLevels.low.detectIcmp.pps != 0"><br/>AVG Size: {{ protections.protectionLevels.low.detectIcmp.bps/(protections.protectionLevels.low.detectIcmp.pps*8) }}B</span>
-        </div>
-        <div class="col">
-            {{humanUnits(protections.protectionLevels.medium.detectIcmp.bps)}}bps<br/>
-            {{humanUnits(protections.protectionLevels.medium.detectIcmp.pps)}}pps
-            <span v-if="protections.protectionLevels.medium.detectIcmp.bps != 0 && protections.protectionLevels.medium.detectIcmp.pps != 0"><br/>AVG Size: {{ protections.protectionLevels.medium.detectIcmp.bps/(protections.protectionLevels.medium.detectIcmp.pps*8) }}B</span>
-        </div>
-        <div class="col">
-            {{humanUnits(protections.protectionLevels.high.detectIcmp.bps)}}bps<br/>
-            {{humanUnits(protections.protectionLevels.high.detectIcmp.pps)}}pps
-            <span v-if="protections.protectionLevels.high.detectIcmp.bps != 0 && protections.protectionLevels.high.detectIcmp.pps != 0"><br/>AVG Size: {{ protections.protectionLevels.high.detectIcmp.bps/(protections.protectionLevels.high.detectIcmp.pps*8) }}B</span>
-        </div>
-        
-    </div>
-    <div class="row mt-2">
-        <div class="col">Fragment</div>
-        <div class="col">
-            {{humanUnits(protections.protectionLevels.low.fragmentation.bps)}}bps<br/>
-            {{humanUnits(protections.protectionLevels.low.fragmentation.pps)}}pps
-            <span v-if="protections.protectionLevels.low.fragmentation.bps != 0 && protections.protectionLevels.low.fragmentation.pps != 0"><br/>AVG Size: {{ protections.protectionLevels.low.fragmentation.bps/(protections.protectionLevels.low.fragmentation.pps*8) }}B</span>
-        </div>
-        <div class="col">
-            {{humanUnits(protections.protectionLevels.medium.fragmentation.bps)}}bps<br/>
-            {{humanUnits(protections.protectionLevels.medium.fragmentation.pps)}}pps
-            <span v-if="protections.protectionLevels.medium.fragmentation.bps != 0 && protections.protectionLevels.medium.fragmentation.pps != 0"><br/>AVG Size: {{ protections.protectionLevels.medium.fragmentation.bps/(protections.protectionLevels.medium.fragmentation.pps*8) }}B</span>
-        </div>
-        <div class="col">
-            {{humanUnits(protections.protectionLevels.high.fragmentation.bps)}}bps<br/>
-            {{humanUnits(protections.protectionLevels.high.fragmentation.pps)}}pps
-            <span v-if="protections.protectionLevels.high.fragmentation.bps != 0 && protections.protectionLevels.high.fragmentation.pps != 0"><br/>AVG Size: {{ protections.protectionLevels.high.fragmentation.bps/(protections.protectionLevels.high.fragmentation.pps*8) }}B</span>
-        </div>
-        
-    </div>
-
-    <h4>TCP</h4>
 
 </div>
 </template>

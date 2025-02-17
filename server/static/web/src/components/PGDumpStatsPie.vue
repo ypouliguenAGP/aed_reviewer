@@ -79,6 +79,9 @@ var option = {}
 watch(() => props.stats, (first, second) => {
   option = setOptions()
 });
+watch(() => props.unit, (first, second) => {
+  option = setOptions()
+});
 </script>
 
 <style scoped>

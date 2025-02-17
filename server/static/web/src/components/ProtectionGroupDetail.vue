@@ -16,7 +16,7 @@ export default {
   },
   methods: {
     getData() {
-      fetch('http://localhost:5000/api/protection_group/')
+      fetch('http://localhost:5000/aed_reviewer/api/protection_group/')
         .then(response => response.json())
         .then(data => this.pgs = data)
     },
@@ -27,7 +27,4 @@ export default {
 
 <template>
 {{ pg_id }}
-    
-    
-aaa
 </template>

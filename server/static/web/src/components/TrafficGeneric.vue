@@ -70,7 +70,14 @@ function setOptions(){
     },
     legend: {
       orient: 'horizontal',
-      bottom: 0,
+      top: 'bottom',
+      textStyle: {
+        width:'80',
+        fontWeight: 'normal',
+        fontSize: 10,
+        overflow:'truncate',
+        ellipsis: '..'
+      },
       data: legend
     },
     toolbox: {

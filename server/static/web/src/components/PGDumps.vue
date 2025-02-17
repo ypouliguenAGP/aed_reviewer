@@ -8,7 +8,7 @@ import { onMounted,ref } from 'vue';
 
 const dumps = ref({})
 function loadData(){
-    fetch('http://localhost:5000/api/protection_groups/'+props.pg_id+'/dumps/')
+    fetch('http://localhost:5000/aed_reviewer/api/protection_groups/'+props.pg_id+'/dumps/')
     .then(response => response.json())
     .then(data => dumps.value = data)
 }

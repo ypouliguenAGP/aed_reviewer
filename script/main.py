@@ -3,14 +3,16 @@ import json
 import subprocess
 import re
 import datetime
-from changelog import getLogs
+from changelog import getDBLogs
 from helpers import get_results, intToBool, get_results_list
 from protections import getProtectionDetails
 from dumps import processPacketDump, packetStats
+from aed_config import processSavedConfig
 import config
 import argparse
 import os
 import copy
+import sys
 
 
 parser = argparse.ArgumentParser(description='Basic argparse example.')
@@ -258,7 +260,7 @@ UNIT_CONVERSION = {
     'G': 1000*1000*1000,
 }
 
-cur_events.execute('select * from user_alerts')
+cur_events.execute('select * from user_alerts ORDER BY start_time ASC')
 results = get_results(cur_events)
 value_pattern = r" was ([\d]+(?:\.[\d]{2}){0,1}) ([K|M|G]{0,1})([a-z]+)\."
 # print(pgs)
@@ -281,21 +283,32 @@ for row in results:
     if row['pgid'] not in pgs:
         print(f"{row['pgid']} not in pgs")
         continue
-    # print(row)
-
-    if 'alert' not in pgs[row['pgid']]:
+    if 'alerts' not in pgs[row['pgid']]:
         pgs[row['pgid']]['alerts'] = {}
+        if row['pgid'] == 526:
+            print('Adding Alerts')
     if type not in pgs[row['pgid']]['alerts']:
+        if row['pgid'] == 526:
+            print(f'Adding {type}')
         pgs[row['pgid']]['alerts'][type] = []
 
+    if row['pgid'] == 526:
+        print(f'Alerts: {row}')
     if type == 'automation':
+        if row['pgid'] == 526:
+            print(len(pgs[row['pgid']]['alerts'][type]))
         pgs[row['pgid']]['alerts'][type].append({
             'stop_time':row['stop_time'],
             'start_time':row['start_time'],
             'detail': row['info']
         })
+        if row['pgid'] == 526:
+            print(len(pgs[row['pgid']]['alerts'][type]))
         continue
+    
+    
 
+    
     result = re.search(value_pattern, row['info'])
     try:
         value = float(result.group(1))
@@ -311,7 +324,6 @@ for row in results:
         print(f"Error rendering user_alert {row['id']}")
         print(row)
         continue
-
 
 
 
@@ -453,11 +465,16 @@ conn_feed.close()
 conn_cfg.close()
 conn_events.close()
 
-changes = getLogs(
+changes = getDBLogs(
     list(pgs.keys()),
     list(sts.keys()),
     )
 
+
+# Retriving Interfaces and IP Access
+ipAccesses = processSavedConfig()
+
+# getSyslog()
 
 # Format PG List as table
 pgs_formated = {
@@ -538,6 +555,9 @@ with open(f"{config.EXPORT_PATH}http_proxy.json", "w") as outfile:
 
 with open(f"{config.EXPORT_PATH}notification_dests.json", "w") as outfile:
     json.dump(notification_dests, outfile, indent=config.EXPORT_INDENT)
+
+with open(f"{config.EXPORT_PATH}ip_access.json", "w") as outfile:
+    json.dump(ipAccesses, outfile, indent=config.EXPORT_INDENT)
 
 if not os.path.exists(f"{config.EXPORT_PATH}/stats/dumps/"):
     os.makedirs(f"{config.EXPORT_PATH}/stats/dumps/")

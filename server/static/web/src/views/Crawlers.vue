@@ -12,12 +12,12 @@ export default {
   },
   methods: {
     getItems() {
-      fetch('http://localhost:5000/api/crawlers')
+      fetch('http://localhost:5000/aed_reviewer/api/crawlers')
         .then(response => response.json())
         .then(data => this.crawlers = data)
     },
     getSTs() {
-      fetch('http://localhost:5000/api/server_types')
+      fetch('http://localhost:5000/aed_reviewer/api/server_types')
         .then(response => response.json())
         .then(data => this.sts = data)
     },

@@ -1,6 +1,5 @@
 <script setup>
 import { RouterLink, RouterView } from 'vue-router'
-import HelloWorld from './components/HelloWorld.vue'
 </script>
 
 <template>
@@ -15,6 +14,8 @@ import HelloWorld from './components/HelloWorld.vue'
                         <li><RouterLink class="bd-links-link d-inline-block rounded" to="/interfaces">Interfaces</RouterLink></li>
                         <li><RouterLink class="bd-links-link d-inline-block rounded" to="/crawlers">Crawlers</RouterLink></li>
                         <li><RouterLink class="bd-links-link d-inline-block rounded" to="/notifications">Notifications</RouterLink></li>
+                        <li><RouterLink class="bd-links-link d-inline-block rounded" to="/global_alerting">Global Alerting</RouterLink></li>
+                        <li><RouterLink class="bd-links-link d-inline-block rounded" to="/ip_access">IP Access</RouterLink></li>
                     </ul>
                 </li>
             </ul>

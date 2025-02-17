@@ -28,17 +28,17 @@ export default {
   },
   methods: {
     getPGs() {
-      fetch('http://localhost:5000/api/protection_groups')
+      fetch('http://localhost:5000/aed_reviewer/api/protection_groups')
         .then(response => response.json())
         .then(data => this.pgs = data)
     },
     getSTs() {
-      fetch('http://localhost:5000/api/server_types')
+      fetch('http://localhost:5000/aed_reviewer/api/server_types')
         .then(response => response.json())
         .then(data => this.sts = data)
     },
     getGA() {
-      fetch('http://localhost:5000/api/global_alerting')
+      fetch('http://localhost:5000/aed_reviewer/api/global_alerting')
         .then(response => response.json())
         .then(data => this.global_alerting = data)
         .then(this.addAlertThreshold)
@@ -121,8 +121,6 @@ export default {
     addAlertThreshold(){
       for (const [pg_id, pg] of Object.entries(this.pgs)){
         if (!'alert_thresholds' in pg) continue
-        
-        
         
         if (pg.alert_thresholds.total.mode.startsWith('auto_')){
           pg.protection_level_human = 'Auto '+this.protection_level[pg.security_level]

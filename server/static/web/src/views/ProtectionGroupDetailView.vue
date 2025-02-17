@@ -3,7 +3,6 @@
 const props = defineProps({
   pg_id: String,
 })
-import PGAlertModal from '../components/PGAlertModal.vue'
 import NetworkGraphs from '@/components/NetworkGraphs.vue';
 import PGAlerts from '@/components/PGAlerts.vue';
 import PGChanges from '@/components/PGChanges.vue';
@@ -13,10 +12,11 @@ import Protections from '@/components/Protections.vue';
 import { useSimplePrefixe } from '@/composables/ips.js';
 import { useFormatDate } from '@/composables/helpers.js';
 import { ref, onMounted } from 'vue'
+import AlertStats from '@/components/AlertStats.vue';
 
 var graph_unit = ref('pps')
 const pg = ref({})
-const relevant_alerts_age = ref(Date.now()/1000-(3600*24*120)) // 120 Days
+const relevant_alerts_age = ref(Date.now()/1000-(3600*24*365)) // 120 Days
 const protection_levels = ref({
   1: 'low',
   2: 'medium',
@@ -27,7 +27,7 @@ var chart_period = ref('1d')
 var selected_tab = ref('protections')
 
 function getData() {
-    fetch('http://localhost:5000/api/protection_groups/'+props.pg_id)
+    fetch('http://localhost:5000/aed_reviewer/api/protection_groups/'+props.pg_id)
       .then(response => response.json())
       .then(data => pg.value = data.data)
 }
@@ -39,9 +39,6 @@ function humanPrefixes(prefixes_arr){
   }
   return str
 }
-
-
-
 
 function totalAlerts(){
   if (!('alerts' in pg.value)) return 0
@@ -69,6 +66,16 @@ function dropAlerts(){
   return count
 }
 
+function securityLevel(){
+  if (!('alert_thresholds' in pg.value)) return
+  if (pg.value['alert_thresholds']['total']['mode'].startsWith('auto_')){
+    if (pg.value.security_level === null) return 'Auto Global'
+    else return 'Auto '+protection_levels.value[pg.value.security_level]
+  } else {
+    if (pg.value.security_level === null) return 'Global'
+    else return protection_levels.value[pg.value.security_level]
+  }
+}
 function botnetAlerts(){
   if (!('alerts' in pg.value)) return 0
   var count= 0
@@ -101,7 +108,9 @@ onMounted(() => {
     </div>
     <div class="row">
       <div class="col-3">Level:</div>
-      <div class="col"><span class="text-capitalize">{{ protection_levels[pg.security_level] }}</span></div>
+      <div class="col"><span class="text-capitalize">
+        {{securityLevel()}}
+      </span></div>
     </div><div class="row">
       <div class="col-3">Mode:</div>
       <div class="col"><span class="text-capitalize">
@@ -118,6 +127,11 @@ onMounted(() => {
         <span class="text-warning" v-else-if="pg.profile_capture.stop_time*1000 < now-(86400*270*1000)">{{useFormatDate(pg.profile_capture.stop_time*1000)}}({{pg.profile_capture.duration/3600}} hours)</span>
         <span class="text-success" v-else-if="pg.profile_capture.stop_time*1000 < now-(86400*270*1000)">{{useFormatDate(pg.profile_capture.stop_time*1000)}} ({{pg.profile_capture.duration/3600}} hours)</span>
       </div>
+    </div>
+    <div class="row">
+      <div class="col-3">Thresholds:</div>
+      <div class="col"><AlertStats v-if="pg.alert_thresholds" :alert_thresholds="pg.alert_thresholds" :protection_levels="protection_levels"/></div>
+      
     </div>
     <div class="row">
       <div class="col-3">Alerts Total Traffic:</div>
@@ -152,7 +166,7 @@ onMounted(() => {
       </li>
     </ul>
     <NetworkGraphs v-if="pg.stats && selected_tab == 'stats'" :pg_id="pg_id" />
-    <Protections v-if="pg.protections && selected_tab == 'protections'" :protections="pg.protections"/>
+    <Protections v-if="pg.protections && selected_tab == 'protections'" :protections="pg.protections" :pg_id="pg_id"/>
     <PGChanges v-if="pg.server_type && selected_tab == 'changes'" :pg_id="pg_id"/>
     <PGAlerts v-if="pg.alerts && selected_tab == 'alerts'" :alerts="pg.alerts"/>
     <PGDumps v-if="pg.stats && selected_tab == 'dumps'" :pg_id="pg_id"/>
@@ -165,5 +179,9 @@ onMounted(() => {
 <style>
 .chart {
   height: 20em;
+}
+ul.nav-pills-sm > li > button{
+    padding-bottom: 0.3px !important;
+    padding-top: 0.3px !important;
 }
 </style>

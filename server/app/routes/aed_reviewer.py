@@ -197,6 +197,10 @@ def global_alerting_get():
 def interfaces_get():
     return send_file(f"../{app.config['SOURCE_PATH']}/interfaces.json")
 
+@bp.get('/api/ip_access')
+def ip_access_get():
+    return send_file(f"../{app.config['SOURCE_PATH']}/ip_access.json")
+
 @bp.get('/api/crawlers')
 def crawlers_get():
     return send_file(f"../{app.config['SOURCE_PATH']}/webcrawlers.json")

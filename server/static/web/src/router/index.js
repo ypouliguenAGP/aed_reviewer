@@ -4,7 +4,7 @@ import ProtectionGroupView from '../views/ProtectionGroupView.vue'
 
 
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
+  history: createWebHistory('/http://localhost:5000/aed_reviewer/'),
   routes: [
     {
       path: '/protection-groups',     
@@ -39,14 +39,19 @@ const router = createRouter({
       component: () => import('../views/Notifications.vue'),
     },
     {
+      path: '/global_alerting',
+      name: 'global alerting',
+      component: () => import('../views/GlobalAlerting.vue'),
+    },
+    {
+      path: '/ip_access',
+      name: 'ip_access',
+      component: () => import('../views/IPAccess.vue'),
+    },
+    {
       path: '/about',
       name: 'about',
       component: () => import('../views/AboutView.vue'),
-    },
-    {
-      path: '/test',
-      name: 'test',
-      component: () => import('../views/Test.vue'),
     },
   ],
 })

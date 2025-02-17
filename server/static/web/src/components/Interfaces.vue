@@ -10,7 +10,7 @@ export default {
   },
   methods: {
     getInterfaces() {
-      fetch('http://localhost:5000/api/interfaces')
+      fetch('http://localhost:5000/aed_reviewer/api/interfaces')
         .then(response => response.json())
         .then(data => this.interfaces = data)
     },

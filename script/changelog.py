@@ -1,7 +1,10 @@
 import sqlite3
 import datetime
 from helpers import get_results
-import config 
+import config
+import os
+import sys
+import re
 
 # ChangeLog
 
@@ -11,7 +14,7 @@ changes = {
     'mfl': [],
 }
 
-def getLogs(pgs, sts):
+def getDBLogs(pgs, sts):
     conn_log = sqlite3.connect(f'{config.FOLDER_NAME}/tuba/log.db')
     cur_log = conn_log.cursor()
     # Protection Group
@@ -44,3 +47,19 @@ def getLogs(pgs, sts):
 
     conn_log.close()
     return changes
+
+
+
+# def getSyslog():
+#     print('Retriving syslogs')
+#     # Retriving mgmt interface mac addresses
+#     if not os.path.exists(f"{config.FOLDER_NAME}/syslog"):
+#         print(f"File {config.FOLDER_NAME}/syslog does not exit")
+#     with open(f"{config.FOLDER_NAME}/syslog") as f:
+#         for line in f:
+#             result = re.search("^(.+)\s(.+)\s(.+)\[\d\]: (.+)", line)
+#             if result is None:
+#                 print(line)
+#                 continue
+#             print(result.groups())
+#     sys.exit(1)
