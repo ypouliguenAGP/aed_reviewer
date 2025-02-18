@@ -12,7 +12,7 @@ import Protections from '@/components/Protections.vue';
 import { useSimplePrefixe } from '@/composables/ips.js';
 import { useFormatDate } from '@/composables/helpers.js';
 import { ref, onMounted } from 'vue'
-import AlertStats from '@/components/AlertStats.vue';
+import Thresholds from '@/components/Thresholds.vue';
 
 var graph_unit = ref('pps')
 const pg = ref({})
@@ -23,6 +23,9 @@ const protection_levels = ref({
   3: 'high'
 })
 const now = ref(Date.now())
+const global_alerting = ref({})
+const prefixes_expanded = ref(false)
+const prefixes_max_lenght = ref(20)
 var chart_period = ref('1d')
 var selected_tab = ref('protections')
 
@@ -32,12 +35,10 @@ function getData() {
       .then(data => pg.value = data.data)
 }
 
-function humanPrefixes(prefixes_arr){
-  var str = ''
-  for (const prefix of prefixes_arr){
-      str += useSimplePrefixe(prefix)
-  }
-  return str
+function getGA() {
+    fetch('http://localhost:5000/aed_reviewer/api/global_alerting')
+    .then(response => response.json())
+    .then(data => global_alerting.value = data)
 }
 
 function totalAlerts(){
@@ -87,8 +88,23 @@ function botnetAlerts(){
   return count
 }
 
+function humanPrefixes(prefixes_arr){
+    var str = ''
+    if (prefixes_arr.length <= prefixes_max_lenght.value || prefixes_expanded.value){  
+        for (const prefix of prefixes_arr){
+            str += useSimplePrefixe(prefix)
+        }
+        return str
+    }
+    for (const prefix of prefixes_arr.slice(0, this.prefixes_max_lenght)){
+      str += useSimplePrefixe(prefix)
+    }
+    return str
+}
+
 onMounted(() => {
   getData()
+  getGA()
 })
 </script>
 
@@ -104,7 +120,13 @@ onMounted(() => {
     </div>
     <div class="row" v-if="pg.prefixes">
       <div class="col-3">Prefixes:</div>
-      <div class="col">{{ humanPrefixes(pg.prefixes) }}</div>
+      <div class="col">
+        {{humanPrefixes(pg.prefixes)}}
+        <span v-if="pg.prefixes.length > prefixes_max_lenght" @click="prefixes_expanded = !prefixes_expanded">
+            <template v-if="!prefixes_expanded"><BIconArrowDown />({{pg.prefixes.length-prefixes_max_lenght }})</template>
+            <template v-else><BIconArrowUp /></template>
+        </span>
+      </div>
     </div>
     <div class="row">
       <div class="col-3">Level:</div>
@@ -130,7 +152,7 @@ onMounted(() => {
     </div>
     <div class="row">
       <div class="col-3">Thresholds:</div>
-      <div class="col"><AlertStats v-if="pg.alert_thresholds" :alert_thresholds="pg.alert_thresholds" :protection_levels="protection_levels"/></div>
+      <div class="col"><Thresholds v-if="pg.alert_thresholds" :alert_thresholds="pg.alert_thresholds" :global_alerting="global_alerting"/></div>
       
     </div>
     <div class="row">

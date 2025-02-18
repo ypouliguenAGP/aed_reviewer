@@ -8,20 +8,35 @@ import { RouterLink, RouterView } from 'vue-router'
         <div class="grid-child left">
             <ul class="bd-links-nav list-unstyled mb-0 pb-3 pb-md-2 pe-lg-2">
                 <li class="bd-links-group py-2">
-                    <strong class="bd-links-heading d-flex w-100 align-items-center fw-semibold">AED</strong>
+                    <strong class="bd-links-heading d-flex w-100 align-items-center fw-semibold">AEDs</strong>
                     <ul class="list-unstyled fw-normal pb-2 small">
-                        <li><RouterLink class="bd-links-link d-inline-block rounded" to="/protection-groups">Protection Groups</RouterLink></li>
-                        <li><RouterLink class="bd-links-link d-inline-block rounded" to="/interfaces">Interfaces</RouterLink></li>
-                        <li><RouterLink class="bd-links-link d-inline-block rounded" to="/crawlers">Crawlers</RouterLink></li>
-                        <li><RouterLink class="bd-links-link d-inline-block rounded" to="/notifications">Notifications</RouterLink></li>
-                        <li><RouterLink class="bd-links-link d-inline-block rounded" to="/global_alerting">Global Alerting</RouterLink></li>
-                        <li><RouterLink class="bd-links-link d-inline-block rounded" to="/ip_access">IP Access</RouterLink></li>
+                        <li><RouterLink class="bd-links-link d-inline-block rounded" to="/add">Add</RouterLink></li>
                     </ul>
                 </li>
             </ul>
             <ul class="bd-links-nav list-unstyled mb-0 pb-3 pb-md-2 pe-lg-2">
                 <li class="bd-links-group py-2">
-                    <strong class="bd-links-heading d-flex w-100 align-items-center fw-semibold">Settings</strong>
+                    <strong class="bd-links-heading d-flex w-100 align-items-center fw-semibold">Protections</strong>
+                    <ul class="list-unstyled fw-normal pb-2 small">
+                        <li><RouterLink class="bd-links-link d-inline-block rounded" to="/protection-groups">Protection Groups</RouterLink></li>
+                        <li><RouterLink class="bd-links-link d-inline-block rounded" to="/crawlers">Crawlers</RouterLink></li>
+                        <li><RouterLink class="bd-links-link d-inline-block rounded" :to="'/'+aed_id+'/global_alerting'">Global Alerting</RouterLink></li>
+                    </ul>
+                </li>
+            </ul>
+            <ul class="bd-links-nav list-unstyled mb-0 pb-3 pb-md-2 pe-lg-2">
+                <li class="bd-links-group py-2">
+                    <strong class="bd-links-heading d-flex w-100 align-items-center fw-semibold">Configuration</strong>
+                    <ul class="list-unstyled fw-normal pb-2 small">
+                        <li><RouterLink class="bd-links-link d-inline-block rounded" to="/interfaces">Interfaces</RouterLink></li>
+                        <li><RouterLink class="bd-links-link d-inline-block rounded" to="/notifications">Notifications</RouterLink></li>
+                        <li><RouterLink class="bd-links-link d-inline-block rounded" :to="'/'+aed_id+'/ip_access'">IP Access</RouterLink></li>
+                    </ul>
+                </li>
+            </ul>
+            <ul class="bd-links-nav list-unstyled mb-0 pb-3 pb-md-2 pe-lg-2">
+                <li class="bd-links-group py-2">
+                    <strong class="bd-links-heading d-flex w-100 align-items-center fw-semibold">Tool Settings</strong>
                     <ul class="list-unstyled fw-normal pb-2 small">
                         <li><RouterLink class="bd-links-link d-inline-block rounded" to="/settings">General</RouterLink></li>
                     </ul>

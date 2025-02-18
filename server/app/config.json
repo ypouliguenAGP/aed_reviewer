@@ -1,3 +1,4 @@
 {
-    "SOURCE_PATH": "../exports/AXA/sedc1"
+    "SOURCE_PATH": "../exports/AXA/apdc1",
+    "EXPORT_PATH": "../exports/tests/"
 }

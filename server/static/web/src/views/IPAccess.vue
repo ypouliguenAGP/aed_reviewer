@@ -1,10 +1,13 @@
 <script setup>
+const props = defineProps({
+  aed_id: String,
+})
 import { ref, onMounted } from 'vue';
 
 var ip_access = ref({})
 
 function getData() {
-    fetch('http://localhost:5000/aed_reviewer/api/ip_access')
+    fetch('http://localhost:5000/aed_reviewer/api/'+props.aed_id+'/ip_access')
       .then(response => response.json())
       .then(data => ip_access.value = data)
 }

@@ -1,5 +1,9 @@
 <script>
+import Thresholds from '@/components/Thresholds.vue';
 export default {
+  components: {
+    Thresholds
+  },
   data() {
     return {
       pgs: {},
@@ -41,7 +45,6 @@ export default {
       fetch('http://localhost:5000/aed_reviewer/api/global_alerting')
         .then(response => response.json())
         .then(data => this.global_alerting = data)
-        .then(this.addAlertThreshold)
     },
     humanAlert(pg){
         if (!('alerts' in pg)) return '0'
@@ -89,13 +92,11 @@ export default {
         return str
     },
     prefixesExpandedToogle(pg_id){
-        console.log('Running prefixesExpandedToogle')
         if (pg_id in this.prefixes_expanded){
             delete this.prefixes_expanded[pg_id]
             return
         }
         this.prefixes_expanded[pg_id] = true
-        console.log(this.prefixes_expanded)
     },
     lengthArr(arr){
         return arr.length
@@ -118,64 +119,7 @@ export default {
     IPmask(maskSize) {
         return -1<<(32-maskSize)
     },
-    addAlertThreshold(){
-      for (const [pg_id, pg] of Object.entries(this.pgs)){
-        if (!'alert_thresholds' in pg) continue
-        
-        if (pg.alert_thresholds.total.mode.startsWith('auto_')){
-          pg.protection_level_human = 'Auto '+this.protection_level[pg.security_level]
-        } else {
-          if (pg.security_level === null) pg.protection_level_human = 'Global'
-          else pg.protection_level_human = this.protection_level[pg.security_level]
-        }
 
-        // Total
-        // Static
-        if (['auto_level_static','alert_static'].includes(pg.alert_thresholds.total.mode)){
-
-          pg.calcultated_total_pps = pg.alert_thresholds.total.pps
-          pg.calcultated_total_pps_ratio = Math.round(pg.alert_thresholds.total.pps/pg.alert_thresholds.total.baseline.pps*100)
-          pg.calcultated_total_bps = pg.alert_thresholds.total.bps
-          pg.calcultated_total_bps_ratio = Math.round(pg.alert_thresholds.total.bps/pg.alert_thresholds.total.baseline.bps*100)
-          continue
-        }
-        if (this.global_alerting.total.enabled === false){
-          pg.calcultated_total_pps = null
-          pg.calcultated_total_bps = null
-          continue
-        }
-        else {
-          const calcultated_total_pps = pg.alert_thresholds.total.baseline.pps * this.global_alerting.total.percent/100
-          // PPS
-          if (calcultated_total_pps > this.global_alerting.total.ignore_pps){
-            pg.calcultated_total_pps = calcultated_total_pps
-            pg.calcultated_total_pps_ratio = this.global_alerting.total.percent
-          }
-          else {
-            pg.calcultated_total_pps = this.global_alerting.total.ignore_pps
-            if(this.global_alerting.total.ignore_pps/pg.alert_thresholds.total.baseline.pps > 9999){
-              pg.calcultated_total_pps_ratio = 999999
-            } else {
-              pg.calcultated_total_pps_ratio = Math.round(this.global_alerting.total.ignore_pps/pg.alert_thresholds.total.baseline.pps*100)
-            }
-          }
-          // BPS
-          const calcultated_total_bps = pg.alert_thresholds.total.baseline.bps * this.global_alerting.total.percent/100
-          if (calcultated_total_bps > this.global_alerting.total.ignore_bps){
-            pg.calcultated_total_bps = calcultated_total_bps
-            pg.calcultated_total_bps_ratio = this.global_alerting.total.percent
-          }
-          else {
-            pg.calcultated_total_bps = this.global_alerting.total.ignore_bps
-            if(this.global_alerting.total.ignore_bps/pg.alert_thresholds.total.baseline.bps > 9999){
-              pg.calcultated_total_bps_ratio = 999999
-            } else {
-              pg.calcultated_total_bps_ratio = Math.round(this.global_alerting.total.ignore_bps/pg.alert_thresholds.total.baseline.bps*100)
-            }
-          }
-        }
-      }
-    },
     alertRatioColor(ratio){
       if (ratio > 350) return 'text-danger'
       if (ratio > 150) return 'text-warning'
@@ -265,8 +209,7 @@ export default {
       <td>{{humanAlert(pg)}}</td>
       <td >
         {{ pg.alert_thresholds.total.mode}}<br/>
-        <span :class="pg.calcultated_total_pps == global_alerting.total.ignore_pps ? 'text-primary': ''">{{humanUnits(pg.calcultated_total_pps)}}pps </span><span :class="alertRatioColor(pg.calcultated_total_pps_ratio)">({{pg.calcultated_total_pps_ratio }}%)</span><br/>
-        <span :class="pg.calcultated_total_bps == global_alerting.total.ignore_bps ? 'text-primary': ''">{{humanUnits(pg.calcultated_total_bps)}}bps </span><span :class="alertRatioColor(pg.calcultated_total_bps_ratio)">({{pg.calcultated_total_bps_ratio }}%)</span><br/>
+        <Thresholds v-if="pg.alert_thresholds" :alert_thresholds="pg.alert_thresholds" :global_alerting="global_alerting"/>
       </td>
       <td>Otto</td>
       <td>@mdo</td>

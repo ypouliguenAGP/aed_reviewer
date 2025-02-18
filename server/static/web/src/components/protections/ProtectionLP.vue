@@ -38,7 +38,6 @@ onMounted(() => {
 <template>
 
     <div class="container-fluid px-5 mt-2">
-        {{ CountryArray() }}
         <table class="table table-hover table-striped table-sm">
             <thead>
                 <tr>

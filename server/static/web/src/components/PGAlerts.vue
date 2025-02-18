@@ -6,6 +6,7 @@ const props = defineProps({
 
 import { onMounted,ref, computed } from 'vue';
 import { round, now } from '@/composables/helpers';
+// import AlertsChart from './AlertsChart.vue';
 const units = ref([
       "k",
       "M",
@@ -40,6 +41,7 @@ const s_alerts = computed(() => {
 })
 </script>
 <template>
+    <!-- <AlertsChart title_str="Alerts" v-if="s_alerts.length > 0" :alerts="alerts" /> -->
     <div id="alerts" class="mt-2">
         <table class="table table-striped table-hover">
             <thead>

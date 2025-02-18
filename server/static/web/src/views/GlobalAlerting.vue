@@ -1,4 +1,8 @@
 <script setup>
+const props = defineProps({
+  aed_id: String,
+})
+
 import { onMounted,ref } from 'vue';
 import { humanUnits } from '@/composables/helpers';
 

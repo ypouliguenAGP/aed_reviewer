@@ -1,30 +1,95 @@
-from flask import Flask, send_file, Response, make_response, Blueprint
+from flask import Flask, send_file, Response, make_response, Blueprint, request
 from datetime import datetime
 from app import app
 import json
 import os
 import gzip
-
+import re
+import shutil
+import tarfile
+from ..scripts.main import processAEDConfig
+import string
+import random
 
 
 bp = Blueprint('aed_reviewer', __name__, static_folder='static/aed_reviewer', static_url_path='/static/aed_reviewer/')
+
 
 @bp.route('/', defaults={'path': ''})
 @bp.route('/<path:path>')
 def catch_all(path):
     return send_file('static/aed_reviewer/index.html')
-    # return app.send_static_file("index.html")
+    return app.send_static_file("index.html")
 
 @bp.after_request
 def after_request_func(response):
     response.headers.add('Access-Control-Allow-Origin', '*')
     return response
 
+
+@bp.post('/api/aed/add')
+def aed_add():  
+    # Get the list of files from webpage 
+    files = request.files.getlist("file")
+    # Iterate for each file in the files List, and Save them
+    saved_file = {
+        'DiagFile': None,
+        'AEDToolKit': None,
+    }
+    alphabet = string.ascii_lowercase + string.digits
+    project_id = ''.join(random.choices(alphabet, k=8))
+    print(project_id)
+    os.mkdir(os.path.join(app.config['EXPORT_PATH'], project_id))
+    os.mkdir(os.path.join(app.config['EXPORT_PATH'], project_id, 'inputs'))
+    for file in files: 
+        if re.search("^DiagFile-.*\.tbz2$", file.filename):
+            saved_file['DiagFile'] = "DiagFile.tbz2"
+            file.save(os.path.join(app.config['EXPORT_PATH'], project_id, 'inputs', saved_file['DiagFile']))
+        elif re.search(".*\.tar\.bz2$", file.filename):
+            saved_file['AEDToolKit'] = "AEDToolKit.tar.bz2"
+            file.save(os.path.join(app.config['EXPORT_PATH'], project_id, 'inputs', saved_file['AEDToolKit']))
+        else:
+            continue
+    for (key, value) in saved_file.items():
+        if value is None:
+            shutil.rmtree(os.path.join(app.config['EXPORT_PATH'], project_id), ignore_errors=True)
+            return {'success': False, 'message': f'{key} Missing'}
+        
+    # Processing Files
+    with tarfile.open(os.path.join(app.config['EXPORT_PATH'], project_id, 'inputs', saved_file['AEDToolKit']), 'r:bz2') as tar:
+        for member in tar.getmembers():
+            if re.search(".+\.stats\/.*\.[json|log]", member.name):
+                member_name = member.name
+                member.name = os.path.basename(member.name)
+                tar.extract(member, path=os.path.join(app.config['EXPORT_PATH'], project_id, 'inputs', "stats", member_name.split('/')[-2]))
+    tar.close()
+
+    file_list = ['config_show_saved','ifconfig.txt','tuba/tuba.db','tuba/cfg.db','tuba/events.db','tuba/feed.db','tuba/log.db','smartctl_sdc.txt']
+    base = None
+    with tarfile.open(os.path.join(app.config['EXPORT_PATH'], project_id, 'inputs', saved_file['DiagFile']), 'r:bz2') as tar:
+        for member in tar.getmembers():
+            base = member.name.split('/')[0]
+            break
+        for file_name in file_list:
+            try:
+                member = tar.getmember(f"{base}/{file_name}")
+                member.name = file_name
+                tar.extract(member, path=os.path.join(app.config['EXPORT_PATH'], project_id, 'inputs'))
+            except KeyError:
+                print(f"Warning: File '{base}/{file_name}' not found in the tar archive.")
+    
+    print('Processing Input Files')
+    processAEDConfig(os.path.abspath(os.path.join(app.config['EXPORT_PATH'], project_id)))
+
+    # shutil.rmtree(os.path.join(app.config['EXPORT_PATH'], project_id), ignore_errors=True)
+    return {'success': True, 'message': f'{len(files)} files uploaded successfully'}
+    
+
 @bp.get('/api/protection_groups')
 def pgs_get():
     return send_file(f"../{app.config['SOURCE_PATH']}/pgs.json")
 
-@bp.get('/api/master_filter_list')
+@bp.get('/api/master_filter_list/')
 def mfl_get():
     with open(f"{app.config['SOURCE_PATH']}/master_filter_list.json") as f:
         mfl = json.load(f)
@@ -197,9 +262,9 @@ def global_alerting_get():
 def interfaces_get():
     return send_file(f"../{app.config['SOURCE_PATH']}/interfaces.json")
 
-@bp.get('/api/ip_access')
-def ip_access_get():
-    return send_file(f"../{app.config['SOURCE_PATH']}/ip_access.json")
+@bp.get('/api/<string:aed_id>/ip_access')
+def ip_access_get(aed_id):
+    return send_file(f"../{app.config['EXPORT_PATH']}/{aed_id}/ip_access.json")
 
 @bp.get('/api/crawlers')
 def crawlers_get():
