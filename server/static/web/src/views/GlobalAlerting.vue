@@ -8,7 +8,7 @@ import { humanUnits } from '@/composables/helpers';
 
 const global_alerting = ref({})
 function loadData(){
-    fetch('http://localhost:5000/aed_reviewer/api/global_alerting')
+    fetch('http://localhost:5000/aed_reviewer/api/'+props.aed_id+'/global_alerting')
     .then(response => response.json())
     .then(data => global_alerting.value = data)
 }

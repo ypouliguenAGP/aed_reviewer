@@ -2,6 +2,7 @@
 
 const props = defineProps({
   pg_id: String,
+  aed_id: String,
 })
 import NetworkGraphs from '@/components/NetworkGraphs.vue';
 import PGAlerts from '@/components/PGAlerts.vue';
@@ -14,7 +15,6 @@ import { useFormatDate } from '@/composables/helpers.js';
 import { ref, onMounted } from 'vue'
 import Thresholds from '@/components/Thresholds.vue';
 
-var graph_unit = ref('pps')
 const pg = ref({})
 const relevant_alerts_age = ref(Date.now()/1000-(3600*24*365)) // 120 Days
 const protection_levels = ref({
@@ -26,17 +26,16 @@ const now = ref(Date.now())
 const global_alerting = ref({})
 const prefixes_expanded = ref(false)
 const prefixes_max_lenght = ref(20)
-var chart_period = ref('1d')
 var selected_tab = ref('protections')
 
 function getData() {
-    fetch('http://localhost:5000/aed_reviewer/api/protection_groups/'+props.pg_id)
+    fetch('http://localhost:5000/aed_reviewer/api/'+props.aed_id+'/protection_groups/'+props.pg_id)
       .then(response => response.json())
       .then(data => pg.value = data.data)
 }
 
 function getGA() {
-    fetch('http://localhost:5000/aed_reviewer/api/global_alerting')
+    fetch('http://localhost:5000/aed_reviewer/api/'+props.aed_id+'/global_alerting')
     .then(response => response.json())
     .then(data => global_alerting.value = data)
 }
@@ -187,12 +186,12 @@ onMounted(() => {
         <a class="nav-link" :class="selected_tab == 'dump_stats' ? 'active': ''" href="#" @click="selected_tab = 'dump_stats'">Dump Stats</a>
       </li>
     </ul>
-    <NetworkGraphs v-if="pg.stats && selected_tab == 'stats'" :pg_id="pg_id" />
-    <Protections v-if="pg.protections && selected_tab == 'protections'" :protections="pg.protections" :pg_id="pg_id"/>
-    <PGChanges v-if="pg.server_type && selected_tab == 'changes'" :pg_id="pg_id"/>
+    <NetworkGraphs v-if="pg.stats && selected_tab == 'stats'" :pg_id="pg_id" :aed_id="aed_id"/>
+    <Protections v-if="pg.protections && selected_tab == 'protections'" :protections="pg.protections" :pg_id="pg_id" :aed_id="aed_id"/>
+    <PGChanges v-if="pg.server_type && selected_tab == 'changes'" :pg_id="pg_id" :aed_id="aed_id"/>
     <PGAlerts v-if="pg.alerts && selected_tab == 'alerts'" :alerts="pg.alerts"/>
-    <PGDumps v-if="pg.stats && selected_tab == 'dumps'" :pg_id="pg_id"/>
-    <PGDumpStats v-if="pg.stats && selected_tab == 'dump_stats'" :pg_id="pg_id"/>
+    <PGDumps v-if="pg.stats && selected_tab == 'dumps'" :pg_id="pg_id" :aed_id="aed_id"/>
+    <PGDumpStats v-if="pg.stats && selected_tab == 'dump_stats'" :pg_id="pg_id" :aed_id="aed_id"/>
 </div>
 
 

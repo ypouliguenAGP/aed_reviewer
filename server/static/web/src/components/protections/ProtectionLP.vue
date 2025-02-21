@@ -6,7 +6,8 @@ import TrafficLocation from '@/components/TrafficLocation.vue';
 const props = defineProps({
   protections: Object,
   levels: Array,
-  pg_id: String
+  pg_id: String,
+  aed_id: String,
 })
 function CountryArray(){
     var countries = []
@@ -26,7 +27,7 @@ const graph_unit = ref('pps')
 const locations = ref({})
 function loadPeriod(new_chart_period){
     chart_period.value = new_chart_period
-    fetch('http://localhost:5000/aed_reviewer/api/protection_groups/'+props.pg_id+'/traffic_locations/'+chart_period.value)
+    fetch('http://localhost:5000/aed_reviewer/api/'+props.aed_id+'/protection_groups/'+props.pg_id+'/traffic_locations/'+chart_period.value)
     .then(response => response.json())
     .then(data => locations.value = data)
 }
@@ -36,7 +37,6 @@ onMounted(() => {
 
 </script>
 <template>
-
     <div class="container-fluid px-5 mt-2">
         <table class="table table-hover table-striped table-sm">
             <thead>

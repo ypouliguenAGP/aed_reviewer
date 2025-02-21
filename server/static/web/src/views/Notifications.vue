@@ -5,12 +5,15 @@ export default {
       notifications: {},
     }
   },
+  props: {
+    aed_id: String,
+  },
   created() {
     this.getItems();
   },
   methods: {
     getItems() {
-      fetch('http://localhost:5000/aed_reviewer/api/notifications')
+      fetch('http://localhost:5000/aed_reviewer/api/'+this.aed_id+'/notifications')
         .then(response => response.json())
         .then(data => this.notifications = data)
     },

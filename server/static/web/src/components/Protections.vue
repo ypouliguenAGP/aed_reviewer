@@ -2,7 +2,8 @@
 
 const props = defineProps({
   protections: Object,
-  pg_id: String
+  pg_id: String,
+  aed_id: String,
 })
 
 import { onMounted,ref } from 'vue';
@@ -48,7 +49,7 @@ const selected_tab = ref('rates')
       </li>
     </ul>
     <div v-if="selected_tab == 'filter_list'">
-        <ProtectionFL :levels="levels" :protections="protections"/>
+        <ProtectionFL :levels="levels" :protections="protections" :aed_id="aed_id"/>
     </div>
     <div v-if="selected_tab == 'aif'">
         <ProtectionAIF :levels="levels" :protections="protections"/>
@@ -66,7 +67,7 @@ const selected_tab = ref('rates')
         <ProtectionShaping :levels="levels" :protections="protections" />
     </div>
     <div v-if="selected_tab == 'location_policing'">
-        <ProtectionLP :levels="levels" :protections="protections" :pg_id="pg_id"/>
+        <ProtectionLP :levels="levels" :protections="protections" :pg_id="pg_id" :aed_id="aed_id"/>
     </div>
     
     <div v-if="selected_tab == 'rates'">

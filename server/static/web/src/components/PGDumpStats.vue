@@ -61,6 +61,7 @@
 const props = defineProps({
   title_str: String,
   pg_id: String,
+  aed_id: String,
 })
 import { ref, onMounted } from 'vue';
 import { humanUnits } from '@/composables/helpers.js';
@@ -70,7 +71,7 @@ const stats = ref({})
 const unit = ref('pps')
 
 function loadData(){
-    fetch('http://localhost:5000/aed_reviewer/api/protection_groups/'+props.pg_id+'/dump_stats/')
+    fetch('http://localhost:5000/aed_reviewer/api/'+props.aed_id+'/protection_groups/'+props.pg_id+'/dump_stats/')
     .then(response => response.json())
     .then(data => stats.value = data)
 }

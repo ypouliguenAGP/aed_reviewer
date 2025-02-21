@@ -2,6 +2,7 @@
 
 const props = defineProps({
   pg_id: String,
+  aed_id: String,
 })
 
 import { onMounted,ref } from 'vue';
@@ -10,7 +11,7 @@ const chart_period = ref('1d')
 const graph_unit = ref('bps')
 const changes = ref({})
 function loadLogs(){
-    fetch('http://localhost:5000/aed_reviewer/api/protection_groups/'+props.pg_id+'/changes/')
+    fetch('http://localhost:5000/aed_reviewer/api/'+props.aed_id+'/protection_groups/'+props.pg_id+'/changes/')
     .then(response => response.json())
     .then(data => changes.value = array_reorder(data))
 }

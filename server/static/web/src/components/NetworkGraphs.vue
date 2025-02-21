@@ -4,6 +4,7 @@
 
 const props = defineProps({
   pg_id: String,
+  aed_id: String,
 })
 
 import { onMounted,ref } from 'vue';
@@ -17,7 +18,7 @@ const graph_unit = ref('pps')
 const stats = ref({})
 function loadPeriod(new_chart_period){
     chart_period.value = new_chart_period
-    fetch('http://localhost:5000/aed_reviewer/api/protection_groups/'+props.pg_id+'/traffic/'+chart_period.value)
+    fetch('http://localhost:5000/aed_reviewer/api/'+props.aed_id+'/protection_groups/'+props.pg_id+'/traffic/'+chart_period.value)
     .then(response => response.json())
     .then(data => stats.value = data)
     console.log(chart_period.value)

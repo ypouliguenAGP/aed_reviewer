@@ -10,6 +10,7 @@ from .dumps import processPacketDump, packetStats
 from .aed_config import processSavedConfig
 import os
 import copy
+import sys
 from .config import FOLDER_NAME, EXPORT_PATH, BANDWIDTH_ALERT_MODES, NOTIFICATION, PROTECTION_LEVEL, EXPORT_INDENT, LEGACY
 
 
@@ -239,13 +240,14 @@ def processAEDConfig(basedir):
     UNIT_CONVERSION = {
         '': 1,
         'K': 1000,
-        'M': 1000*1000,
-        'G': 1000*1000*1000,
+        'M': 1000^2,
+        'G': 1000^3,
+        'T': 1000^4,
     }
 
     cur_events.execute('select * from user_alerts ORDER BY start_time ASC')
     results = get_results(cur_events)
-    value_pattern = r" was ([\d]+(?:\.[\d]{2}){0,1}) ([K|M|G]{0,1})([a-z]+)\."
+    value_pattern = r" was ([\d]+(?:\.[\d]{2}){0,1}) ([K|M|G|T]{0,1})([a-z]+)\."
     # print(pgs)
     for row in results:
         
@@ -268,45 +270,35 @@ def processAEDConfig(basedir):
             continue
         if 'alerts' not in pgs[row['pgid']]:
             pgs[row['pgid']]['alerts'] = {}
-            if row['pgid'] == 526:
-                print('Adding Alerts')
         if type not in pgs[row['pgid']]['alerts']:
-            if row['pgid'] == 526:
-                print(f'Adding {type}')
             pgs[row['pgid']]['alerts'][type] = []
 
-        if row['pgid'] == 526:
-            print(f'Alerts: {row}')
         if type == 'automation':
-            if row['pgid'] == 526:
-                print(len(pgs[row['pgid']]['alerts'][type]))
             pgs[row['pgid']]['alerts'][type].append({
                 'stop_time':row['stop_time'],
                 'start_time':row['start_time'],
                 'detail': row['info']
             })
-            if row['pgid'] == 526:
-                print(len(pgs[row['pgid']]['alerts'][type]))
             continue
         
-        
-
         
         result = re.search(value_pattern, row['info'])
-        try:
-            value = float(result.group(1))
-            pgs[row['pgid']]['alerts'][type].append({
-                # 'start_time': datetime.datetime.fromtimestamp(row['start_time']),
-                # 'stop_time': datetime.datetime.fromtimestamp(row['stop_time']),
-                'stop_time':row['stop_time'],
-                'start_time':row['start_time'],
-                'rate': value*UNIT_CONVERSION[result.group(2)],
-                'unit': result.group(3)
-            })
-        except:
-            print(f"Error rendering user_alert {row['id']}")
-            print(row)
-            continue
+
+        value = float(result.group(1))
+        pgs[row['pgid']]['alerts'][type].append({
+            # 'start_time': datetime.datetime.fromtimestamp(row['start_time']),
+            # 'stop_time': datetime.datetime.fromtimestamp(row['stop_time']),
+            'stop_time':row['stop_time'],
+            'start_time':row['start_time'],
+            'rate': value*UNIT_CONVERSION[result.group(2)],
+            'unit': result.group(3)
+        })
+        # except:
+        #     print(f"Error rendering user_alert {row['id']}")
+        #     print(row)
+        #     print(result.groups())
+        #     continue
+    # sys.exit(1)
 
 
 
@@ -456,7 +448,7 @@ def processAEDConfig(basedir):
 
 
     # Retriving Interfaces and IP Access
-    ipAccesses = processSavedConfig(FOLDER_NAME)
+    interfaces_mgt, ipAccesses, ipRoutes = processSavedConfig(FOLDER_NAME)
 
     # getSyslog()
 
@@ -542,6 +534,12 @@ def processAEDConfig(basedir):
 
     with open(f"{EXPORT_PATH}ip_access.json", "w") as outfile:
         json.dump(ipAccesses, outfile, indent=EXPORT_INDENT)
+
+    with open(f"{EXPORT_PATH}ip_routes.json", "w") as outfile:
+        json.dump(ipRoutes, outfile, indent=EXPORT_INDENT)
+
+    with open(f"{EXPORT_PATH}interfaces_mgt.json", "w") as outfile:
+        json.dump(interfaces_mgt, outfile, indent=EXPORT_INDENT)
 
     if not os.path.exists(f"{EXPORT_PATH}/stats/dumps/"):
         os.makedirs(f"{EXPORT_PATH}/stats/dumps/")

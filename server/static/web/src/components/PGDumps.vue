@@ -2,13 +2,14 @@
 
 const props = defineProps({
   pg_id: String,
+  aed_id: String,
 })
 
 import { onMounted,ref } from 'vue';
 
 const dumps = ref({})
 function loadData(){
-    fetch('http://localhost:5000/aed_reviewer/api/protection_groups/'+props.pg_id+'/dumps/')
+    fetch('http://localhost:5000/aed_reviewer/api/'+props.aed_id+'/protection_groups/'+props.pg_id+'/dumps/')
     .then(response => response.json())
     .then(data => dumps.value = data)
 }

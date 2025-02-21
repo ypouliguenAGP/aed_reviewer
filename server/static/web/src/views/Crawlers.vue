@@ -6,18 +6,21 @@ export default {
       sts: {},
     }
   },
+  props: {
+    aed_id: String,
+  },
   created() {
     this.getItems();
     this.getSTs()
   },
   methods: {
     getItems() {
-      fetch('http://localhost:5000/aed_reviewer/api/crawlers')
+      fetch('http://localhost:5000/aed_reviewer/api/'+this.aed_id+'/crawlers')
         .then(response => response.json())
         .then(data => this.crawlers = data)
     },
     getSTs() {
-      fetch('http://localhost:5000/aed_reviewer/api/server_types')
+      fetch('http://localhost:5000/aed_reviewer/api/'+this.aed_id+'/server_types')
         .then(response => response.json())
         .then(data => this.sts = data)
     },

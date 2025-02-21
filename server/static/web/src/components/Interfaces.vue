@@ -5,12 +5,15 @@ export default {
       interfaces: {},
     }
   },
+  props: {
+    aed_id: String,
+  },
   created() {
     this.getInterfaces();
   },
   methods: {
     getInterfaces() {
-      fetch('http://localhost:5000/aed_reviewer/api/interfaces')
+      fetch('http://localhost:5000/aed_reviewer/api/'+this.aed_id+'/interfaces')
         .then(response => response.json())
         .then(data => this.interfaces = data)
     },

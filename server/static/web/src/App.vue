@@ -1,9 +1,18 @@
 <script setup>
 import { RouterLink, RouterView } from 'vue-router'
+import { ref } from 'vue';
+
+// const props = defineProps({
+//     aed_id: String
+// })
+const aed_id = ref('blank')
+if (location.pathname.split('/'.length > 1)){
+    if (location.pathname.split('/')[1].startsWith('aed-')) aed_id.value = location.pathname.split('/')[1]
+}
+
 </script>
 
 <template>
-
     <div class="grid-container">
         <div class="grid-child left">
             <ul class="bd-links-nav list-unstyled mb-0 pb-3 pb-md-2 pe-lg-2">
@@ -11,6 +20,7 @@ import { RouterLink, RouterView } from 'vue-router'
                     <strong class="bd-links-heading d-flex w-100 align-items-center fw-semibold">AEDs</strong>
                     <ul class="list-unstyled fw-normal pb-2 small">
                         <li><RouterLink class="bd-links-link d-inline-block rounded" to="/add">Add</RouterLink></li>
+                        <li><RouterLink class="bd-links-link d-inline-block rounded" :to="'/'+aed_id+'/protection-groups'">{{ aed_id }}</RouterLink></li>
                     </ul>
                 </li>
             </ul>
@@ -18,8 +28,8 @@ import { RouterLink, RouterView } from 'vue-router'
                 <li class="bd-links-group py-2">
                     <strong class="bd-links-heading d-flex w-100 align-items-center fw-semibold">Protections</strong>
                     <ul class="list-unstyled fw-normal pb-2 small">
-                        <li><RouterLink class="bd-links-link d-inline-block rounded" to="/protection-groups">Protection Groups</RouterLink></li>
-                        <li><RouterLink class="bd-links-link d-inline-block rounded" to="/crawlers">Crawlers</RouterLink></li>
+                        <li><RouterLink class="bd-links-link d-inline-block rounded" :to="'/'+aed_id+'/protection-groups'">Protection Groups</RouterLink></li>
+                        <li><RouterLink class="bd-links-link d-inline-block rounded" :to="{ name: 'crawlers', params: { aed_id: aed_id }}">Crawlers</RouterLink></li>
                         <li><RouterLink class="bd-links-link d-inline-block rounded" :to="'/'+aed_id+'/global_alerting'">Global Alerting</RouterLink></li>
                     </ul>
                 </li>
@@ -28,8 +38,9 @@ import { RouterLink, RouterView } from 'vue-router'
                 <li class="bd-links-group py-2">
                     <strong class="bd-links-heading d-flex w-100 align-items-center fw-semibold">Configuration</strong>
                     <ul class="list-unstyled fw-normal pb-2 small">
-                        <li><RouterLink class="bd-links-link d-inline-block rounded" to="/interfaces">Interfaces</RouterLink></li>
-                        <li><RouterLink class="bd-links-link d-inline-block rounded" to="/notifications">Notifications</RouterLink></li>
+                        <li><RouterLink class="bd-links-link d-inline-block rounded" :to="'/'+aed_id+'/interfaces'">Interfaces</RouterLink></li>
+                        <li><RouterLink class="bd-links-link d-inline-block rounded" :to="'/'+aed_id+'/routes'">Routes</RouterLink></li>
+                        <li><RouterLink class="bd-links-link d-inline-block rounded" :to="'/'+aed_id+'/notifications'">Notifications</RouterLink></li>
                         <li><RouterLink class="bd-links-link d-inline-block rounded" :to="'/'+aed_id+'/ip_access'">IP Access</RouterLink></li>
                     </ul>
                 </li>
