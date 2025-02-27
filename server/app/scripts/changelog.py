@@ -45,6 +45,37 @@ def getDBLogs(pgs, sts, FOLDER_NAME):
     for row in results:
         changes['mfl'].append(row)
 
+    # System
+    changes['system'] = []
+    cur_log.execute('select * from changelog where subsystem=="System"')
+    results = get_results(cur_log)
+    for row in results:
+        changes['system'].append(row)
+
+    changes['backup'] = []
+    cur_log.execute('select * from changelog where subsystem=="Backup"')
+    results = get_results(cur_log)
+    for row in results:
+        changes['backup'].append(row)
+    
+    changes['aif'] = []
+    cur_log.execute('select * from changelog where subsystem=="ATLAS Intelligence Feed"')
+    results = get_results(cur_log)
+    for row in results:
+        changes['aif'].append(row)
+
+    changes['cloud_signaling'] = []
+    cur_log.execute('select * from changelog where subsystem=="Cloud Signaling"')
+    results = get_results(cur_log)
+    for row in results:
+        changes['cloud_signaling'].append(row)
+
+    changes['filesystem'] = []
+    cur_log.execute('select * from changelog where subsystem=="Filesystem"')
+    results = get_results(cur_log)
+    for row in results:
+        changes['filesystem'].append(row)
+    
     conn_log.close()
     return changes
 

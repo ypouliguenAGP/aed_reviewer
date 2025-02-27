@@ -21,6 +21,7 @@ def boolGenericDetails(cursor, sts, table_name, api_name):
     cursor.execute(f'select * from {table_name}')
     results = get_results(cursor)
     for row in results:
+        
         if row['server_type'] not in sts:
             continue
         sts[row['server_type']]['protectionLevels'][PROTECTION_LEVEL[row['security_level']]][api_name] = { "enabled": intToBool(row['enabled']) }

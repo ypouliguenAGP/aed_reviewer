@@ -1,6 +1,6 @@
 <script setup>
 import { RouterLink, RouterView } from 'vue-router'
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 
 // const props = defineProps({
 //     aed_id: String
@@ -8,7 +8,23 @@ import { ref } from 'vue';
 const aed_id = ref('blank')
 if (location.pathname.split('/'.length > 1)){
     if (location.pathname.split('/')[1].startsWith('aed-')) aed_id.value = location.pathname.split('/')[1]
+    else if (location.pathname.split('/')[2].startsWith('aed-')) aed_id.value = location.pathname.split('/')[2]
 }
+
+var system_name = ref(aed_id.value)
+
+function getSysName() {
+    fetch('/aed_reviewer/api/'+aed_id.value+'/system_name')
+      .then(response => response.json())
+      .then(data => {
+        system_name.value = data
+        document.title = "AED Reviewer - "+system_name.value
+    })
+}
+
+onMounted(() => {
+  getSysName()
+})
 
 </script>
 
@@ -20,11 +36,11 @@ if (location.pathname.split('/'.length > 1)){
                     <strong class="bd-links-heading d-flex w-100 align-items-center fw-semibold">AEDs</strong>
                     <ul class="list-unstyled fw-normal pb-2 small">
                         <li><RouterLink class="bd-links-link d-inline-block rounded" to="/add">Add</RouterLink></li>
-                        <li><RouterLink class="bd-links-link d-inline-block rounded" :to="'/'+aed_id+'/protection-groups'">{{ aed_id }}</RouterLink></li>
+                        <li v-if="aed_id != 'blank'"><RouterLink class="bd-links-link d-inline-block rounded" :to="'/'+aed_id+'/protection-groups'">{{ system_name }}</RouterLink></li>
                     </ul>
                 </li>
             </ul>
-            <ul class="bd-links-nav list-unstyled mb-0 pb-3 pb-md-2 pe-lg-2">
+            <ul v-if="aed_id != 'blank'" class="bd-links-nav list-unstyled mb-0 pb-3 pb-md-2 pe-lg-2">
                 <li class="bd-links-group py-2">
                     <strong class="bd-links-heading d-flex w-100 align-items-center fw-semibold">Protections</strong>
                     <ul class="list-unstyled fw-normal pb-2 small">
@@ -34,14 +50,18 @@ if (location.pathname.split('/'.length > 1)){
                     </ul>
                 </li>
             </ul>
-            <ul class="bd-links-nav list-unstyled mb-0 pb-3 pb-md-2 pe-lg-2">
+            <ul v-if="aed_id != 'blank'" class="bd-links-nav list-unstyled mb-0 pb-3 pb-md-2 pe-lg-2">
                 <li class="bd-links-group py-2">
                     <strong class="bd-links-heading d-flex w-100 align-items-center fw-semibold">Configuration</strong>
                     <ul class="list-unstyled fw-normal pb-2 small">
+                        <li><RouterLink class="bd-links-link d-inline-block rounded" :to="'/'+aed_id+'/hardware'">Hardware</RouterLink></li>
+                        <li><RouterLink class="bd-links-link d-inline-block rounded" :to="'/'+aed_id+'/licenses'">Licenses</RouterLink></li>
+                        <li><RouterLink class="bd-links-link d-inline-block rounded" :to="'/'+aed_id+'/global_config'">Global Config</RouterLink></li>
                         <li><RouterLink class="bd-links-link d-inline-block rounded" :to="'/'+aed_id+'/interfaces'">Interfaces</RouterLink></li>
                         <li><RouterLink class="bd-links-link d-inline-block rounded" :to="'/'+aed_id+'/routes'">Routes</RouterLink></li>
                         <li><RouterLink class="bd-links-link d-inline-block rounded" :to="'/'+aed_id+'/notifications'">Notifications</RouterLink></li>
                         <li><RouterLink class="bd-links-link d-inline-block rounded" :to="'/'+aed_id+'/ip_access'">IP Access</RouterLink></li>
+                        <li><RouterLink class="bd-links-link d-inline-block rounded" :to="'/'+aed_id+'/changes'">Changes</RouterLink></li>
                     </ul>
                 </li>
             </ul>

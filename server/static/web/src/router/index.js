@@ -4,8 +4,8 @@ import ProtectionGroupView from '../views/ProtectionGroupView.vue'
 
 
 const router = createRouter({
-  // history: createWebHistory('/http://localhost:5000/aed_reviewer/'),
-  history: createWebHistory(''),
+  history: createWebHistory('/aed_reviewer/'),
+  // history: createWebHistory(''),
   routes: [
     {
       path: '/add',
@@ -51,6 +51,30 @@ const router = createRouter({
         name: 'crawlers',
         props: true,
         component: () => import('../views/Crawlers.vue'),
+      },
+      {
+        path: 'hardware',
+        name: 'hardware',
+        props: true,
+        component: () => import('../views/Hardware.vue'),
+      },
+      {
+        path: 'licenses',
+        name: 'licenses',
+        props: true,
+        component: () => import('../views/Licenses.vue'),
+      },
+      {
+        path: 'changes',
+        name: 'changes',
+        props: true,
+        component: () => import('../views/Changes.vue'),
+      },
+      {
+        path: 'global_config',
+        name: 'global',
+        props: true,
+        component: () => import('../views/GlobalConfig.vue'),
       },
       {
         path: 'notifications',

@@ -29,13 +29,13 @@ const prefixes_max_lenght = ref(20)
 var selected_tab = ref('protections')
 
 function getData() {
-    fetch('http://localhost:5000/aed_reviewer/api/'+props.aed_id+'/protection_groups/'+props.pg_id)
+    fetch('/aed_reviewer/api/'+props.aed_id+'/protection_groups/'+props.pg_id)
       .then(response => response.json())
       .then(data => pg.value = data.data)
 }
 
 function getGA() {
-    fetch('http://localhost:5000/aed_reviewer/api/'+props.aed_id+'/global_alerting')
+    fetch('/aed_reviewer/api/'+props.aed_id+'/global_alerting')
     .then(response => response.json())
     .then(data => global_alerting.value = data)
 }

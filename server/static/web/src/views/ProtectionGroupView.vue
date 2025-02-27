@@ -35,17 +35,17 @@ export default {
   },
   methods: {
     getPGs() {
-      fetch('http://localhost:5000/aed_reviewer/api/'+this.aed_id+'/protection_groups')
+      fetch('/aed_reviewer/api/'+this.aed_id+'/protection_groups')
         .then(response => response.json())
         .then(data => this.pgs = data)
     },
     getSTs() {
-      fetch('http://localhost:5000/aed_reviewer/api/'+this.aed_id+'/server_types')
+      fetch('/aed_reviewer/api/'+this.aed_id+'/server_types')
         .then(response => response.json())
         .then(data => this.sts = data)
     },
     getGA() {
-      fetch('http://localhost:5000/aed_reviewer/api/'+this.aed_id+'/global_alerting')
+      fetch('/aed_reviewer/api/'+this.aed_id+'/global_alerting')
         .then(response => response.json())
         .then(data => this.global_alerting = data)
     },
@@ -193,8 +193,6 @@ export default {
       <th scope="col">Level</th>
       <th scope="col">Alerts (T/D/B)</th>
       <th scope="col">Thresholds</th>
-      <th scope="col">Warnings</th>
-      <th scope="col">Details</th>
     </tr>
   </thead>
   <tbody>
@@ -214,8 +212,6 @@ export default {
         {{ pg.alert_thresholds.total.mode}}<br/>
         <Thresholds v-if="pg.alert_thresholds" :alert_thresholds="pg.alert_thresholds" :global_alerting="global_alerting"/>
       </td>
-      <td>Otto</td>
-      <td>@mdo</td>
     </tr>
   </tbody>
 </table>

@@ -10,7 +10,7 @@ import { onMounted,ref } from 'vue';
 
 const mfl = ref({})
 function loadData(){
-    fetch('http://localhost:5000/aed_reviewer/api/'+props.aed_id+'/master_filter_list')
+    fetch('/aed_reviewer/api/'+props.aed_id+'/master_filter_list')
     .then(response => response.json())
     .then(data => mfl.value = data)
 }

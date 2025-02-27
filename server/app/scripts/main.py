@@ -240,9 +240,9 @@ def processAEDConfig(basedir):
     UNIT_CONVERSION = {
         '': 1,
         'K': 1000,
-        'M': 1000^2,
-        'G': 1000^3,
-        'T': 1000^4,
+        'M': 1000**2,
+        'G': 1000**3,
+        'T': 1000**4,
     }
 
     cur_events.execute('select * from user_alerts ORDER BY start_time ASC')
@@ -283,7 +283,6 @@ def processAEDConfig(basedir):
         
         
         result = re.search(value_pattern, row['info'])
-
         value = float(result.group(1))
         pgs[row['pgid']]['alerts'][type].append({
             # 'start_time': datetime.datetime.fromtimestamp(row['start_time']),
@@ -448,7 +447,8 @@ def processAEDConfig(basedir):
 
 
     # Retriving Interfaces and IP Access
-    interfaces_mgt, ipAccesses, ipRoutes = processSavedConfig(FOLDER_NAME)
+    interfaces_mgt, ipAccesses, ipRoutes, licenses, hardware, global_config_cli = processSavedConfig(FOLDER_NAME)
+    global_config.update(global_config_cli)
 
     # getSyslog()
 
@@ -534,6 +534,12 @@ def processAEDConfig(basedir):
 
     with open(f"{EXPORT_PATH}ip_access.json", "w") as outfile:
         json.dump(ipAccesses, outfile, indent=EXPORT_INDENT)
+
+    with open(f"{EXPORT_PATH}licenses.json", "w") as outfile:
+        json.dump(licenses, outfile, indent=EXPORT_INDENT)
+    
+    with open(f"{EXPORT_PATH}hardware.json", "w") as outfile:
+        json.dump(hardware, outfile, indent=EXPORT_INDENT)
 
     with open(f"{EXPORT_PATH}ip_routes.json", "w") as outfile:
         json.dump(ipRoutes, outfile, indent=EXPORT_INDENT)

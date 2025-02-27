@@ -27,7 +27,7 @@ const graph_unit = ref('pps')
 const locations = ref({})
 function loadPeriod(new_chart_period){
     chart_period.value = new_chart_period
-    fetch('http://localhost:5000/aed_reviewer/api/'+props.aed_id+'/protection_groups/'+props.pg_id+'/traffic_locations/'+chart_period.value)
+    fetch('/aed_reviewer/api/'+props.aed_id+'/protection_groups/'+props.pg_id+'/traffic_locations/'+chart_period.value)
     .then(response => response.json())
     .then(data => locations.value = data)
 }

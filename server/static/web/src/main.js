@@ -21,3 +21,5 @@ app.use(router)
 app.mount('#app')
 app.component("BIconArrowDown", BIconArrowDown);
 app.component("BIconArrowUp", BIconArrowUp);
+
+app.config.globalProperties.base_path_api = '/aed_reviewer/api/'

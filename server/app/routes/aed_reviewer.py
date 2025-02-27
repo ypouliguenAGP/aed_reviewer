@@ -1,4 +1,4 @@
-from flask import Flask, send_file, Response, make_response, Blueprint, request
+from flask import Flask, send_file, Response, make_response, Blueprint, request, jsonify, abort
 from datetime import datetime
 from app import app
 import json
@@ -18,52 +18,48 @@ bp = Blueprint('aed_reviewer', __name__, static_folder='static/aed_reviewer', st
 @bp.route('/', defaults={'path': ''})
 @bp.route('/<path:path>')
 def catch_all(path):
+    print('running catchall')
     return send_file('static/aed_reviewer/index.html')
-    return app.send_static_file("index.html")
+
+@bp.route('/assets/<path:path>')
+def assets_get(path):
+    return send_file(f'static/aed_reviewer/assets/{path}')
 
 @bp.after_request
 def after_request_func(response):
+    print(request.endpoint)
     response.headers.add('Access-Control-Allow-Origin', '*')
     return response
 
-
-
-@bp.post('/api/aed/upload_simple')
-def aed_upload_simple():  
-    return {'success':True}
+@bp.get('/api/aed/add_project')
+def aed_add_project():
+    alphabet = string.ascii_lowercase + string.digits
+    project_id = 'aed-'+''.join(random.choices(alphabet, k=8))
+    
+    os.mkdir(os.path.join(app.config['EXPORT_PATH'], project_id))
+    os.mkdir(os.path.join(app.config['EXPORT_PATH'], project_id, 'inputs'))
+    print(project_id)
+    return {'success': True, 'project_id': project_id}
 
 @bp.post('/api/aed/upload')
 def aed_upload():  
     # Get the list of files from webpage 
     files = request.files.getlist("file")
     print(request)
+    print(request.form)
+    project_id = request.form.get('project_id')
     # Iterate for each file in the files List, and Save them
-    saved_file = {
-        'DiagFile': None,
-        'AEDToolKit': None,
-    }
-    alphabet = string.ascii_lowercase + string.digits
-    project_id = 'aed-'+''.join(random.choices(alphabet, k=8))
-    
-    print(project_id)
-    os.mkdir(os.path.join(app.config['EXPORT_PATH'], project_id))
-    os.mkdir(os.path.join(app.config['EXPORT_PATH'], project_id, 'inputs'))
+
     for file in files: 
         if re.search("^DiagFile-.*\.tbz2$", file.filename):
-            saved_file['DiagFile'] = "DiagFile.tbz2"
-            file.save(os.path.join(app.config['EXPORT_PATH'], project_id, 'inputs', saved_file['DiagFile']))
+            file.save(os.path.join(app.config['EXPORT_PATH'], project_id, 'inputs', "DiagFile.tbz2"))
         elif re.search(".*\.tar\.bz2$", file.filename):
-            saved_file['AEDToolKit'] = "AEDToolKit.tar.bz2"
-            file.save(os.path.join(app.config['EXPORT_PATH'], project_id, 'inputs', saved_file['AEDToolKit']))
+            file.save(os.path.join(app.config['EXPORT_PATH'], project_id, 'inputs', "AEDToolKit.tar.bz2"))
         else:
             continue
-    for (key, value) in saved_file.items():
-        if value is None:
-            shutil.rmtree(os.path.join(app.config['EXPORT_PATH'], project_id), ignore_errors=True)
-            return {'success': False, 'message': f'{key} Missing'}
     return {'success': True, 'message': f'{len(files)} files uploaded successfully', 'aed_id':project_id}
 
-@bp.post('/api/aed/<string:aed_id>/uncompress')
+@bp.get('/api/<string:aed_id>/uncompress')
 def aed_uncompress(aed_id):
     saved_file = {
         'DiagFile': "DiagFile.tbz2",
@@ -102,8 +98,7 @@ def aed_parse(aed_id):
     for folder in folders_to_copy:
         print(f'Copying folder {folder}')
         shutil.copytree(os.path.abspath(os.path.join(app.config['EXPORT_PATH'], aed_id, "inputs", "stats", folder)), os.path.join(app.config['EXPORT_PATH'], aed_id, "stats", folder), dirs_exist_ok=True)
-
-    # shutil.rmtree(os.path.join(app.config['EXPORT_PATH'], project_id), ignore_errors=True)
+    # shutil.rmtree(os.path.join(app.config['EXPORT_PATH'], aed_id, "inputs"), ignore_errors=True)
     return {'success': True, 'aed_id':aed_id}
 
 @bp.post('/api/aed/add')
@@ -174,9 +169,13 @@ def aed_add():
     # shutil.rmtree(os.path.join(app.config['EXPORT_PATH'], project_id), ignore_errors=True)
     return {'success': True, 'message': f'{len(files)} files uploaded successfully', 'aed_id':project_id}
     
-
-
-
+@bp.get('/api/<string:aed_id>/system_name')
+def system_name_get(aed_id):
+    with open(f"{app.config['EXPORT_PATH']}/{aed_id}/global.json") as f:
+        global_config = json.load(f)
+    if 'system_name' not in global_config:
+        return {'success': False}
+    return jsonify(global_config['system_name'])
 
 @bp.get('/api/<string:aed_id>/protection_groups')
 def pgs_get(aed_id):
@@ -368,9 +367,26 @@ def ip_routes_get(aed_id):
 def ip_access_get(aed_id):
     return send_file(f"../{app.config['EXPORT_PATH']}/{aed_id}/ip_access.json")
 
+@bp.get('/api/<string:aed_id>/hardware')
+def hardware_get(aed_id):
+    return send_file(f"../{app.config['EXPORT_PATH']}/{aed_id}/hardware.json")
+
+@bp.get('/api/<string:aed_id>/global')
+def global_get(aed_id):
+    return send_file(f"../{app.config['EXPORT_PATH']}/{aed_id}/global.json")
+
+@bp.get('/api/<string:aed_id>/http_proxy')
+def http_proxy_get(aed_id):
+    return send_file(f"../{app.config['EXPORT_PATH']}/{aed_id}/http_proxy.json")
+
+@bp.get('/api/<string:aed_id>/licenses')
+def licenses_get(aed_id):
+    return send_file(f"../{app.config['EXPORT_PATH']}/{aed_id}/licenses.json")
+
 @bp.get('/api/<string:aed_id>/crawlers')
 def crawlers_get(aed_id):
     return send_file(f"../{app.config['EXPORT_PATH']}/{aed_id}/webcrawlers.json")
+
 
 @bp.get('/api/<string:aed_id>/notifications')
 def notifications_get(aed_id):
@@ -402,6 +418,78 @@ def pg_logs_get(pg_id, aed_id):
         events += data['st'][f"{st_id}"]
     return events
 
+
+@bp.get('/api/<string:aed_id>/change_types/')
+def log_types_get(aed_id):
+    if not os.path.exists(f"{app.config['EXPORT_PATH']}/{aed_id}/changes.json"):
+        return {'success': False}
+    with open(f"{app.config['EXPORT_PATH']}/{aed_id}/changes.json") as f:
+        data = json.load(f)
+        
+    event_types = []
+    for type_selected in data:
+        event_types.append(type_selected)
+    return jsonify(event_types)
+        
+
+@bp.get('/api/<string:aed_id>/changes/')
+def logs_get(aed_id):
+    if not os.path.exists(f"{app.config['EXPORT_PATH']}/{aed_id}/changes.json"):
+        return {'success': False}
+    with open(f"{app.config['EXPORT_PATH']}/{aed_id}/changes.json") as f:
+        data = json.load(f)
+    events = []
+    for type_selected in data:
+        if type(data[type_selected]) is dict:
+            for event_gid in data[type_selected]:
+                events = events + data[type_selected][event_gid]
+        else:
+            events = events + data[type_selected]
+    return events
+                                                                                                                          
+
+@bp.post('/api/<string:aed_id>/changes/')
+def logs_post(aed_id):
+    max_items = 300
+    request_data = request.get_json()
+    if 'subtype' not in request_data or 'search_str' not in request_data:
+        return {'success': False, 'message': f"Missing fields"}
+    subtype = request_data['subtype']
+    search_str = request_data['search_str'].lower()
+    if not os.path.exists(f"{app.config['EXPORT_PATH']}/{aed_id}/changes.json"):
+        return {'success': False}
+    with open(f"{app.config['EXPORT_PATH']}/{aed_id}/changes.json") as f:
+            data = json.load(f)
+    events = []
+    if subtype == '*':
+        for type_selected in data:
+            if type(data[type_selected]) is dict:
+                for event_gid in data[type_selected]:
+                    events = events + search_event(search_str, data[type_selected][event_gid])
+            else:
+                events = events + search_event(search_str, data[type_selected])
+        
+    else:
+        if subtype not in data:
+            return {'success': False, 'message': f"Subtype {subtype} does not exist"}
+        
+        if type(data[subtype]) is dict:
+                for event_gid in data[subtype]:
+                    events = events + search_event(search_str, data[subtype][event_gid])
+        else:
+            events = events + search_event(search_str, data[subtype])
+
+    events.sort(key=lambda x:x['tstamp'], reverse=True)
+    return events[:max_items]
+
+def search_event(search_str, events):
+    selected_events = []
+    for event in events:
+        if search_str in event['message'].lower() or search_str in event['username'].lower():
+            selected_events.append(event)
+            continue
+    return selected_events
+    
 
 @bp.get('/api/<string:aed_id>/protection_groups/<string:pg_id>/dumps/')
 def pg_dumps_get_compressed(pg_id, aed_id):

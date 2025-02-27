@@ -19,7 +19,7 @@ const props = defineProps({
                 </tr>
             </thead>
             <tbody>
-                <tr class="text-capitalize">
+                <tr class="text-capitalize" v-if="protections['protectionLevels']['low']['webcrawler']">
                     <th>Web Crawler Support</th>
                     <td v-for="level in levels">{{ protections['protectionLevels'][level]['webcrawler']['enabled'] }}</td>
                 </tr>

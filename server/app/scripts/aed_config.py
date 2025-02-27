@@ -4,6 +4,7 @@ import sys
 from .config import NETMASKS
 
 def processSavedConfig(FOLDER_NAME):
+    global_config = {}
 
     print('Retriving mgmt interface mac addresses')
     # Retriving mgmt interface mac addresses
@@ -56,8 +57,102 @@ def processSavedConfig(FOLDER_NAME):
                 ipAccessProcess(line, ipAccess, interfaces)
             if line.startswith('ip route add '):
                 ipRouteProcess(line, ipRoutes, interfaces)
+            if line.startswith('system name set '):
+                result = re.search("^system name set (.+)", line)
+                if result is not None:
+                    global_config['system_name'] = result.group(1)
+            if line.startswith('system timezone set '):
+                result = re.search("^system timezone set (.+)", line)
+                if result is not None:
+                    global_config['timezone'] = result.group(1)
+            if line.startswith('system idle set '):
+                result = re.search("^system idle set (.+)", line)
+                if result is not None:
+                    global_config['system_idle'] = result.group(1)
+            
+            if line.startswith('services ntp server add '):
+                result = re.search("^services ntp server add (.+)", line)
+                if result is not None:
+                    if 'ntp' not in global_config:
+                        global_config['ntp'] = result.group(1)
+                    else:
+                        global_config['ntp'] += ' '+result.group(1)
+            if line.startswith('services dns server add '):
+                result = re.search("^services dns server add (.+)", line)
+                if result is not None:
+                    if 'dns' not in global_config:
+                        global_config['dns'] = result.group(1)
+                    else:
+                        global_config['dns'] += ' '+result.group(1)
 
-    return interfaces, ipAccess, ipRoutes
+            if line.startswith('services backup server set '):
+                result = re.search("^services backup server set (.+)", line)
+                if result is not None:
+                    global_config['backup_server'] = result.group(1)
+            if line.startswith('services backup schedule full '):
+                result = re.search("^services backup schedule full (.+)", line)
+                if result is not None:
+                    global_config['backup_full'] = result.group(1)
+            if line.startswith('services backup schedule incremental '):
+                result = re.search("^services backup schedule incremental (.+)", line)
+                if result is not None:
+                    global_config['backup_incremental'] = result.group(1)
+            if line.startswith('services aaa max_login_failures set '):
+                result = re.search("^services aaa max_login_failures set (.+)", line)
+                if result is not None:
+                    global_config['max_login_failures'] = result.group(1)
+            if line.startswith('services aaa password_length min '):
+                result = re.search("^services aaa password_length min (.+)", line)
+                if result is not None:
+                    global_config['password_length_min'] = result.group(1)
+
+    # Banner
+    banner_flag = False
+    global_config['banner'] = ''
+    with open(f"{FOLDER_NAME}/config_show_saved") as f:
+        for line in f:
+            if line.startswith('system banner set'):
+                banner_flag = True
+                continue
+            if line.startswith('services '):
+                banner_flag = False
+                break
+            if banner_flag:
+                global_config['banner'] += line+'\n'
+            
+
+                
+
+    licenses = retrieve_license(FOLDER_NAME)
+    hardware = retrieve_hardware(FOLDER_NAME)
+
+
+
+    return interfaces, ipAccess, ipRoutes, licenses, hardware, global_config
+
+
+# Retrive License
+
+def retrieve_license(FOLDER_NAME):
+    licenses = []
+    with open(f"{FOLDER_NAME}/licenses.txt") as f:
+        for line in f:
+            if re.match("dmvd tmp dir contents", line):
+                break
+            if re.match("^system license ", line):
+                continue
+            licenses.append(line)
+    return licenses
+
+
+def retrieve_hardware(FOLDER_NAME):
+    hardware = []
+    with open(f"{FOLDER_NAME}/hardware.txt") as f:
+        for line in f:
+            hardware.append(line)
+    return hardware
+
+
 
 def ipAccessProcess(line, ipAccess, interfaces):
     result = re.search("^ip access add ([a-z]{3,10}) (.+) (.+)", line)

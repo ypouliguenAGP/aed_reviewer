@@ -13,7 +13,7 @@ export default {
   },
   methods: {
     getRoutes() {
-      fetch('http://localhost:5000/aed_reviewer/api/'+this.aed_id+'/ip_routes')
+      fetch('/aed_reviewer/api/'+this.aed_id+'/ip_routes')
         .then(response => response.json())
         .then(data => this.routes = data)
     },

@@ -16,7 +16,7 @@ export default {
   },
   methods: {
     getData() {
-      fetch('http://localhost:5000/aed_reviewer/api/protection_group/')
+      fetch('/aed_reviewer/api/protection_group/')
         .then(response => response.json())
         .then(data => this.pgs = data)
     },
