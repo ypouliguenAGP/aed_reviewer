@@ -26,7 +26,7 @@ def key_required(f):
         # If exports does not exist
         if not os.path.exists(f"{app.config['EXPORT_PATH']}{request.view_args['aed_id']}"):
             return {'success': False, 'error': '498r'}
-        # If cookie key is provided
+        # If cookie key is not provided
         if not request.view_args['aed_id'] in request.cookies:
             return {'success': False, 'error': '545b'}
         # Retrieve key
@@ -58,6 +58,35 @@ def after_request_func(response):
     print(request.endpoint)
     response.headers.add('Access-Control-Allow-Origin', '*')
     return response
+
+
+@bp.post('/api/aed/validation')
+def aed_validation():
+    if 'aed_id' not in request.form or 'aed_password' not in request.form:
+        return {'success': False}
+
+    # Checking if exist
+    if not os.path.exists(f"{app.config['EXPORT_PATH']}{request.form['aed_id']}"):
+        return {'success': False, 'message': 'project does not exist'}
+    # If cookie key is provided
+    key = request.form['aed_password']
+    # check if key is correctly encoded
+    try:
+        base64.urlsafe_b64decode(key)
+    except:
+        return {'success': False, 'error': 'AED Key format error'}
+    
+    try:
+        g.fernet = Fernet(key)
+        with open(f"{app.config['EXPORT_PATH']}{request.form['aed_id']}/global.json") as f:
+            decrypted = g.fernet.decrypt(f.read())
+        global_config = json.loads(decrypted)
+    except:
+        return {'success': False, 'error': 'Key Error'}
+
+    resp = make_response(jsonify({'success':True, 'name':global_config['system_name']}) )
+    resp.set_cookie(request.form['aed_id'], key, path=f"/aed_reviewer/api/{request.form['aed_id']}/", max_age=3600*24*30)
+    return resp
 
 @bp.get('/api/aed/add_project')
 def aed_add_project():
