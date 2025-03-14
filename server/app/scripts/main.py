@@ -12,15 +12,32 @@ import os
 import copy
 import sys
 from .config import FOLDER_NAME, EXPORT_PATH, BANDWIDTH_ALERT_MODES, NOTIFICATION, PROTECTION_LEVEL, EXPORT_INDENT, LEGACY
+from cryptography.fernet import Fernet
+import shutil
 
+def encryptSave(fernet, path, data):
+    encrypted = fernet.encrypt(json.dumps(data).encode('utf-8'))
+    with open(path, "wb") as outfile:
+        outfile.write(encrypted)
+    return True
+    
 
 def processAEDConfig(basedir):
+
+    
+
+
     FOLDER_NAME = os.path.join(basedir, 'inputs')
     EXPORT_PATH = basedir+"/"
 
     heath = {
         'disk': {},
     }
+
+    fernet_key = Fernet.generate_key()
+    fernet = Fernet(fernet_key)
+    # with open(f"{EXPORT_PATH}fernet.key", 'wb') as filekey:
+    #     filekey.write(fernet_key)
 
     CMD = f"grep 'Total_LBAs_Written' -A 7 {FOLDER_NAME}/smartctl_sdc.txt"
     p = subprocess.run(CMD, shell=True, stdout=subprocess.PIPE)
@@ -474,87 +491,131 @@ def processAEDConfig(basedir):
     if not os.path.exists(f'{EXPORT_PATH}{LEGACY}'):
         os.makedirs(f'{EXPORT_PATH}{LEGACY}')
 
-    with open(f"{EXPORT_PATH}{LEGACY}export.pg", "w") as outfile:
-        json.dump(formater("protection-groups",pgs), outfile, indent=EXPORT_INDENT)
-    with open(f"{EXPORT_PATH}pgs.json", "w") as outfile:
-        json.dump(pgs, outfile, indent=EXPORT_INDENT)
+    # with open(f"{EXPORT_PATH}{LEGACY}export.pg", "w") as outfile:
+    #     json.dump(formater("protection-groups",pgs), outfile, indent=EXPORT_INDENT)
+    # with open(f"{EXPORT_PATH}pgs.json", "w") as outfile:
+    #     json.dump(pgs, outfile, indent=EXPORT_INDENT)
 
 
-    with open(f"{EXPORT_PATH}{LEGACY}export.st", "w") as outfile:
-        json.dump(formater("server-types",sts), outfile, indent=EXPORT_INDENT)
-    with open(f"{EXPORT_PATH}sts.json", "w") as outfile:
-        json.dump(sts, outfile, indent=EXPORT_INDENT)
+    # with open(f"{EXPORT_PATH}{LEGACY}export.st", "w") as outfile:
+    #     json.dump(formater("server-types",sts), outfile, indent=EXPORT_INDENT)
+    # with open(f"{EXPORT_PATH}sts.json", "w") as outfile:
+    #     json.dump(sts, outfile, indent=EXPORT_INDENT)
 
-    with open(f"{EXPORT_PATH}server_types.json", "w") as outfile:
-        json.dump(sts, outfile, indent=EXPORT_INDENT)
+    # with open(f"{EXPORT_PATH}server_types.json", "w") as outfile:
+    #     json.dump(sts, outfile, indent=EXPORT_INDENT)
 
-    with open(f"{EXPORT_PATH}{LEGACY}export.ibh", "w") as outfile:
-        json.dump({"denied-hosts": inbound['denied-hosts']}, outfile, indent=EXPORT_INDENT)
-    with open(f"{EXPORT_PATH}{LEGACY}export.ibc", "w") as outfile:
-        json.dump({"denied-countries": inbound['denied-countries']}, outfile, indent=EXPORT_INDENT)
-    with open(f"{EXPORT_PATH}{LEGACY}export.iwh", "w") as outfile:
-        json.dump({"allowed-hosts": inbound['allowed-hosts']}, outfile, indent=EXPORT_INDENT)
-    with open(f"{EXPORT_PATH}{LEGACY}export.mfl", "w") as outfile:
-        json.dump(inbound['mfl'], outfile, indent=EXPORT_INDENT)
-    with open(f"{EXPORT_PATH}/master_filter_list.json", "w") as outfile:
-        json.dump(inbound['mfl'], outfile, indent=EXPORT_INDENT)
 
-    with open(f"{EXPORT_PATH}{LEGACY}export.obh", "w") as outfile:
-        json.dump({"denied-hosts": outbound['denied-hosts']}, outfile, indent=EXPORT_INDENT)
-    with open(f"{EXPORT_PATH}{LEGACY}export.ibc", "w") as outfile:
-        json.dump({"denied-countries": outbound['denied-countries']}, outfile, indent=EXPORT_INDENT)
-    with open(f"{EXPORT_PATH}{LEGACY}export.owh", "w") as outfile:
-        json.dump({"allowed-hosts": outbound['allowed-hosts']}, outfile, indent=EXPORT_INDENT)
+    encryptSave(fernet, f"{EXPORT_PATH}pgs.json", pgs)
+    encryptSave(fernet, f"{EXPORT_PATH}sts.json", sts)
+    encryptSave(fernet, f"{EXPORT_PATH}master_filter_list.json", inbound['mfl'])
 
-    with open(f"{EXPORT_PATH}interfaces.json", "w") as outfile:
-        json.dump(interfaces, outfile, indent=EXPORT_INDENT)
+    # with open(f"{EXPORT_PATH}{LEGACY}export.ibh", "w") as outfile:
+    #     json.dump({"denied-hosts": inbound['denied-hosts']}, outfile, indent=EXPORT_INDENT)
+    # with open(f"{EXPORT_PATH}{LEGACY}export.ibc", "w") as outfile:
+    #     json.dump({"denied-countries": inbound['denied-countries']}, outfile, indent=EXPORT_INDENT)
+    # with open(f"{EXPORT_PATH}{LEGACY}export.iwh", "w") as outfile:
+    #     json.dump({"allowed-hosts": inbound['allowed-hosts']}, outfile, indent=EXPORT_INDENT)
+    # with open(f"{EXPORT_PATH}{LEGACY}export.mfl", "w") as outfile:
+    #     json.dump(inbound['mfl'], outfile, indent=EXPORT_INDENT)
+    # with open(f"{EXPORT_PATH}/master_filter_list.json", "w") as outfile:
+    #     json.dump(inbound['mfl'], outfile, indent=EXPORT_INDENT)
 
-    with open(f"{EXPORT_PATH}changes.json", "w") as outfile:
-        json.dump(changes, outfile, indent=EXPORT_INDENT)
+    # with open(f"{EXPORT_PATH}{LEGACY}export.obh", "w") as outfile:
+    #     json.dump({"denied-hosts": outbound['denied-hosts']}, outfile, indent=EXPORT_INDENT)
+    # with open(f"{EXPORT_PATH}{LEGACY}export.ibc", "w") as outfile:
+    #     json.dump({"denied-countries": outbound['denied-countries']}, outfile, indent=EXPORT_INDENT)
+    # with open(f"{EXPORT_PATH}{LEGACY}export.owh", "w") as outfile:
+    #     json.dump({"allowed-hosts": outbound['allowed-hosts']}, outfile, indent=EXPORT_INDENT)
 
-    with open(f"{EXPORT_PATH}webcrawlers.json", "w") as outfile:
-        json.dump(webcrawlers, outfile, indent=EXPORT_INDENT)
+    # with open(f"{EXPORT_PATH}interfaces.json", "w") as outfile:
+    #     json.dump(interfaces, outfile, indent=EXPORT_INDENT)
+
+    # with open(f"{EXPORT_PATH}changes.json", "w") as outfile:
+    #     json.dump(changes, outfile, indent=EXPORT_INDENT)
+
+    encryptSave(fernet, f"{EXPORT_PATH}interfaces.json", interfaces)
+    encryptSave(fernet, f"{EXPORT_PATH}changes.json", changes)
+    # with open(f"{EXPORT_PATH}webcrawlers.json", "w") as outfile:
+    #     json.dump(webcrawlers, outfile, indent=EXPORT_INDENT)
 
     # Legacy
-    with open(f"{EXPORT_PATH}{LEGACY}export.at", "w") as outfile:
-        json.dump(global_alerting, outfile, indent=EXPORT_INDENT)
+    # with open(f"{EXPORT_PATH}{LEGACY}export.at", "w") as outfile:
+    #     json.dump(global_alerting, outfile, indent=EXPORT_INDENT)
 
-    with open(f"{EXPORT_PATH}global_alerting.json", "w") as outfile:
-        json.dump(global_alerting, outfile, indent=EXPORT_INDENT)
+    # with open(f"{EXPORT_PATH}global_alerting.json", "w") as outfile:
+    #     json.dump(global_alerting, outfile, indent=EXPORT_INDENT)
         
+    # with open(f"{EXPORT_PATH}global.json", "w") as outfile:
+    #     json.dump(global_config, outfile, indent=EXPORT_INDENT)
 
-    with open(f"{EXPORT_PATH}global.json", "w") as outfile:
-        json.dump(global_config, outfile, indent=EXPORT_INDENT)
+    # with open(f"{EXPORT_PATH}http_proxy.json", "w") as outfile:
+    #     json.dump(http_proxy, outfile, indent=EXPORT_INDENT)
 
-    with open(f"{EXPORT_PATH}http_proxy.json", "w") as outfile:
-        json.dump(http_proxy, outfile, indent=EXPORT_INDENT)
+    # with open(f"{EXPORT_PATH}notification_dests.json", "w") as outfile:
+    #     json.dump(notification_dests, outfile, indent=EXPORT_INDENT)
 
-    with open(f"{EXPORT_PATH}notification_dests.json", "w") as outfile:
-        json.dump(notification_dests, outfile, indent=EXPORT_INDENT)
+    # with open(f"{EXPORT_PATH}ip_access.json", "w") as outfile:
+    #     json.dump(ipAccesses, outfile, indent=EXPORT_INDENT)
 
-    with open(f"{EXPORT_PATH}ip_access.json", "w") as outfile:
-        json.dump(ipAccesses, outfile, indent=EXPORT_INDENT)
-
-    with open(f"{EXPORT_PATH}licenses.json", "w") as outfile:
-        json.dump(licenses, outfile, indent=EXPORT_INDENT)
+    # with open(f"{EXPORT_PATH}licenses.json", "w") as outfile:
+    #     json.dump(licenses, outfile, indent=EXPORT_INDENT)
     
-    with open(f"{EXPORT_PATH}hardware.json", "w") as outfile:
-        json.dump(hardware, outfile, indent=EXPORT_INDENT)
+    # with open(f"{EXPORT_PATH}hardware.json", "w") as outfile:
+    #     json.dump(hardware, outfile, indent=EXPORT_INDENT)
 
-    with open(f"{EXPORT_PATH}ip_routes.json", "w") as outfile:
-        json.dump(ipRoutes, outfile, indent=EXPORT_INDENT)
+    # with open(f"{EXPORT_PATH}ip_routes.json", "w") as outfile:
+    #     json.dump(ipRoutes, outfile, indent=EXPORT_INDENT)
 
-    with open(f"{EXPORT_PATH}interfaces_mgt.json", "w") as outfile:
-        json.dump(interfaces_mgt, outfile, indent=EXPORT_INDENT)
+    # with open(f"{EXPORT_PATH}interfaces_mgt.json", "w") as outfile:
+    #     json.dump(interfaces_mgt, outfile, indent=EXPORT_INDENT)
 
-    if not os.path.exists(f"{EXPORT_PATH}/stats/dumps/"):
-        os.makedirs(f"{EXPORT_PATH}/stats/dumps/")
-    for pg_id in pgs:
-        entries = processPacketDump(pg_id, FOLDER_NAME)
-        print(f"{len(entries)} Packets for PG {pg_id}")
-        with open(f"{EXPORT_PATH}/stats/dumps/{pg_id}.json", "w") as outfile:
-            json.dump(entries, outfile, indent=EXPORT_INDENT)
-        with open(f"{EXPORT_PATH}/stats/dumps/{pg_id}_stats.json", "w") as outfile:
-            json.dump(packetStats(entries), outfile, indent=EXPORT_INDENT)
+    encryptSave(fernet, f"{EXPORT_PATH}webcrawlers.json", webcrawlers)
+    encryptSave(fernet, f"{EXPORT_PATH}global_alerting.json", global_alerting)
+    encryptSave(fernet, f"{EXPORT_PATH}global.json", global_config)
+    encryptSave(fernet, f"{EXPORT_PATH}http_proxy.json", http_proxy)
+    encryptSave(fernet, f"{EXPORT_PATH}notification_dests.json", notification_dests)
+    encryptSave(fernet, f"{EXPORT_PATH}ip_access.json", ipAccesses)
+    encryptSave(fernet, f"{EXPORT_PATH}licenses.json", licenses)
+    encryptSave(fernet, f"{EXPORT_PATH}hardware.json", hardware)
+    encryptSave(fernet, f"{EXPORT_PATH}ip_routes.json", ipRoutes)
+    encryptSave(fernet, f"{EXPORT_PATH}interfaces_mgt.json", interfaces_mgt)
 
-    return True
+    
+
+    if os.path.exists(f"{FOLDER_NAME}/stats/dumps/"):
+        if not os.path.exists(f"{EXPORT_PATH}/stats/dumps/"):
+            os.makedirs(f"{EXPORT_PATH}/stats/dumps/")
+        for pg_id in pgs:
+            entries = processPacketDump(pg_id, FOLDER_NAME)
+            print(f"{len(entries)} Packets for PG {pg_id}")
+            encryptSave(fernet, f"{EXPORT_PATH}/stats/dumps/{pg_id}.json", entries)
+            # with open(f"{EXPORT_PATH}/stats/dumps/{pg_id}.json", "w") as outfile:
+            #     json.dump(entries, outfile, indent=EXPORT_INDENT)
+            encryptSave(fernet, f"{EXPORT_PATH}/stats/dumps/{pg_id}_stats.json", packetStats(entries))
+            # with open(f"{EXPORT_PATH}/stats/dumps/{pg_id}_stats.json", "w") as outfile:
+            #     json.dump(packetStats(entries), outfile, indent=EXPORT_INDENT)
+    
+
+    # Copying Traffic Stats
+
+    folders_to_copy = ['attacks','traffic','locations','protocols','services']
+    for folder in folders_to_copy:
+        print(f"Creating {os.path.join(EXPORT_PATH, "stats", folder)}")
+        os.makedirs(os.path.join(EXPORT_PATH, "stats", folder), exist_ok=True)
+        obj = os.scandir(os.path.abspath(os.path.join(EXPORT_PATH, "inputs", "stats", folder)))
+        for entry in obj:
+            if not entry.is_file():
+                continue
+            if not entry.name.endswith('.json'):
+                continue
+            # print(entry.path)
+            with open(entry.path) as f:
+                data = json.load(f)
+            encryptSave(fernet, os.path.join(EXPORT_PATH, "stats", folder, entry.name), data)
+            print(f"Encrypting to {os.path.join(EXPORT_PATH, "stats", folder, entry.name)}")
+
+
+    return fernet_key
+
+
