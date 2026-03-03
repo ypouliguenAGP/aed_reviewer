@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "../../../.."
+		},
+		{
+			"path": "../../../../../statusdump_analyser"
+		}
+	],
+	"settings": {
+		"git.ignoreLimitWarning": true
+	}
+}

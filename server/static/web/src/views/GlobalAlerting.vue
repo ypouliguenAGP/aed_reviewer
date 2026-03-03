@@ -4,7 +4,7 @@ const props = defineProps({
 })
 
 import { onMounted,ref } from 'vue';
-import { humanUnits } from '@/composables/helpers';
+import { humanUnits } from '../composables/helpers';
 
 const global_alerting = ref({})
 function loadData(){

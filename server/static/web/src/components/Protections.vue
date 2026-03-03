@@ -7,7 +7,7 @@ const props = defineProps({
 })
 
 import { onMounted,ref } from 'vue';
-import ProtectionRates from '@/components/protections/ProtectionRates.vue';
+import ProtectionRates from './protections/ProtectionRates.vue';
 import ProtectionFL from './protections/ProtectionFL.vue';
 import ProtectionAIF from './protections/ProtectionAIF.vue';
 import ProtectionTCP from './protections/ProtectionTCP.vue';

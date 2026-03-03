@@ -18,7 +18,7 @@ function getSysName() {
       .then(response => response.json())
       .then(data => {
         system_name.value = data
-        document.title = "AED Reviewer - "+system_name.value
+        document.title = "AED - "+system_name.value.name
     })
 }
 
@@ -36,7 +36,8 @@ onMounted(() => {
                     <strong class="bd-links-heading d-flex w-100 align-items-center fw-semibold">AEDs</strong>
                     <ul class="list-unstyled fw-normal pb-2 small">
                         <li><RouterLink class="bd-links-link d-inline-block rounded" to="/add">Add</RouterLink></li>
-                        <li v-if="aed_id != 'blank'"><RouterLink class="bd-links-link d-inline-block rounded" :to="'/'+aed_id+'/protection-groups'">{{ system_name }}</RouterLink></li>
+                        <li><RouterLink class="bd-links-link d-inline-block rounded" to="/link">Access</RouterLink></li>
+                        <li v-if="aed_id != 'blank'"><RouterLink class="bd-links-link d-inline-block rounded" :to="'/'+aed_id+'/protection-groups'">{{ system_name.name }}</RouterLink></li>
                     </ul>
                 </li>
             </ul>
@@ -47,6 +48,14 @@ onMounted(() => {
                         <li><RouterLink class="bd-links-link d-inline-block rounded" :to="'/'+aed_id+'/protection-groups'">Protection Groups</RouterLink></li>
                         <li><RouterLink class="bd-links-link d-inline-block rounded" :to="{ name: 'crawlers', params: { aed_id: aed_id }}">Crawlers</RouterLink></li>
                         <li><RouterLink class="bd-links-link d-inline-block rounded" :to="'/'+aed_id+'/global_alerting'">Global Alerting</RouterLink></li>
+                    </ul>
+                </li>
+            </ul>
+            <ul v-if="aed_id != 'blank'" class="bd-links-nav list-unstyled mb-0 pb-3 pb-md-2 pe-lg-2">
+                <li class="bd-links-group py-2">
+                    <strong class="bd-links-heading d-flex w-100 align-items-center fw-semibold">Statistics</strong>
+                    <ul class="list-unstyled fw-normal pb-2 small">
+                        <li><RouterLink class="bd-links-link d-inline-block rounded" :to="'/'+aed_id+'/statistics/interfaces'">Interfaces</RouterLink></li>
                     </ul>
                 </li>
             </ul>

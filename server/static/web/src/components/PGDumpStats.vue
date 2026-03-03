@@ -64,7 +64,7 @@ const props = defineProps({
   aed_id: String,
 })
 import { ref, onMounted } from 'vue';
-import { humanUnits } from '@/composables/helpers.js';
+import { humanUnits } from '../composables/helpers.js';
 import PGDumpStatsPie from './PGDumpStatsPie.vue';
 
 const stats = ref({})

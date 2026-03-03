@@ -13,6 +13,11 @@ const router = createRouter({
       component: () => import('../views/Add.vue'),
     },
     {
+      path: '/link',
+      name: 'link',
+      component: () => import('../views/Link.vue'),
+    },
+    {
     path: '/:aed_id',     
     component: { render: () => h(RouterView) },
     props: true,
@@ -33,6 +38,12 @@ const router = createRouter({
             component: () => import('../views/ProtectionGroupDetailView.vue'),
           }
         ]
+      },
+      {
+        path: 'statistics/interfaces',
+        name: 'statistics/interfaces',
+        props: true,
+        component: () => import('../views/statistics/Interfaces.vue'),
       },
       {
         path: 'interfaces',

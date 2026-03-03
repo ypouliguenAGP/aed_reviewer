@@ -1,7 +1,7 @@
 <script setup>
 
 import { onMounted,ref } from 'vue';
-import TrafficLocation from '@/components/TrafficLocation.vue';
+import TrafficLocation from '../TrafficLocation.vue';
 
 const props = defineProps({
   protections: Object,

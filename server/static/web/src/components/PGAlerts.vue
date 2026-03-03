@@ -5,7 +5,7 @@ const props = defineProps({
 })
 
 import { onMounted,ref, computed } from 'vue';
-import { round, now } from '@/composables/helpers';
+import { round, now } from '../composables/helpers';
 // import AlertsChart from './AlertsChart.vue';
 const units = ref([
       "k",

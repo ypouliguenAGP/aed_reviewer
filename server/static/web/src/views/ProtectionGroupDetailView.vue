@@ -4,16 +4,16 @@ const props = defineProps({
   pg_id: String,
   aed_id: String,
 })
-import NetworkGraphs from '@/components/NetworkGraphs.vue';
-import PGAlerts from '@/components/PGAlerts.vue';
-import PGChanges from '@/components/PGChanges.vue';
-import PGDumps from '@/components/PGDumps.vue';
-import PGDumpStats from '@/components/PGDumpStats.vue';
-import Protections from '@/components/Protections.vue';
-import { useSimplePrefixe } from '@/composables/ips.js';
-import { useFormatDate } from '@/composables/helpers.js';
+import NetworkGraphs from '../components/NetworkGraphs.vue';
+import PGAlerts from '../components/PGAlerts.vue';
+import PGChanges from '../components/PGChanges.vue';
+import PGDumps from '../components/PGDumps.vue';
+import PGDumpStats from '../components/PGDumpStats.vue';
+import Protections from '../components/Protections.vue';
+import { useSimplePrefixe } from '../composables/ips.js';
+import { useFormatDate } from '../composables/helpers.js';
 import { ref, onMounted } from 'vue'
-import Thresholds from '@/components/Thresholds.vue';
+import Thresholds from '../components/Thresholds.vue';
 
 const pg = ref({})
 const relevant_alerts_age = ref(Date.now()/1000-(3600*24*365)) // 120 Days

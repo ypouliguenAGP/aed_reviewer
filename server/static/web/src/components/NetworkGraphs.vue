@@ -8,8 +8,8 @@ const props = defineProps({
 })
 
 import { onMounted,ref } from 'vue';
-import TrafficLocation from '@/components/TrafficLocation.vue';
-import TrafficGeneric from '@/components/TrafficGeneric.vue';
+import TrafficLocation from './TrafficLocation.vue';
+import TrafficGeneric from './TrafficGeneric.vue';
 import TrafficMain from './TrafficMain.vue';
 
 

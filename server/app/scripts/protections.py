@@ -138,7 +138,9 @@ def getProtectionDetails(cursor, pgs, sts):
         
     # DNS Malform
     sts = boolGenericDetails(cursor, sts, 'cm_dns_malform', 'dnsMalform')
-    
+
+
+
     # DNS dnsNonexistent
     try:
         cursor.execute('select * from cm_dnszap')

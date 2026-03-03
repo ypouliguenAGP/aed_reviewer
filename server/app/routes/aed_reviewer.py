@@ -1,3 +1,4 @@
+import sqlite3
 from flask import Flask, send_file, Response, make_response, Blueprint, request, jsonify, abort, g
 from datetime import datetime
 from app import app
@@ -13,7 +14,166 @@ import random
 from cryptography.fernet import Fernet
 from functools import wraps
 import base64
+import subprocess
+import ipaddress
+import hashlib
+import time
 
+
+def apply_filter(packet, filter_str):
+    """
+    Apply a pcap-like filter to a packet.
+    Supported syntax:
+    - 'dst port 80' / 'src port 443'
+    - 'dst port 1024..65535' (range)
+    - 'dst net 192.168.1.0/24' / 'src net 10.0.0.0/8'
+    - 'proto tcp' / 'proto udp' / 'proto 6'
+    - 'src ip 192.168.1.1' / 'dst ip 10.0.0.1'
+    - 'action drop' / 'action pass'
+    - 'country FR' / 'country US'
+    - 'flags SYN' / 'flags ACK'
+    - Logical operators: 'and', 'or'
+    - Negation: 'not dst port 80'
+    
+    Packet structure example:
+    {
+        "#": 2,
+        "len": "242",
+        "src_ip": "15.1.1.1",
+        "src_port": "4500",
+        "dst_ip": "192.168.1.1",
+        "dst_port": "4500",
+        "proto": "17",
+        "src_country": "FR",
+        "action": "pass",
+        "tcp_flags": "S" (optional, for TCP)
+    }
+    """
+    if not filter_str or filter_str.strip() == '':
+        return True
+    
+    filter_str = filter_str.strip().lower()
+    
+    # Split by 'or' first (lower precedence)
+    if ' or ' in filter_str:
+        parts = filter_str.split(' or ')
+        return any(apply_filter(packet, part.strip()) for part in parts)
+    
+    # Split by 'and' (higher precedence)
+    if ' and ' in filter_str:
+        parts = filter_str.split(' and ')
+        return all(apply_filter(packet, part.strip()) for part in parts)
+    
+    # Handle negation
+    if filter_str.startswith('not '):
+        return not apply_filter(packet, filter_str[4:].strip())
+    
+    # Parse individual conditions
+    tokens = filter_str.split()
+    
+    if len(tokens) == 0:
+        return True
+    
+    # proto <protocol>
+    if tokens[0] == 'proto' and len(tokens) >= 2:
+        proto_map = {'tcp': '6', 'udp': '17', 'icmp': '1', 'gre': '47', 'esp': '50', 'ah': '51'}
+        target_proto = tokens[1]
+        if target_proto in proto_map:
+            target_proto = proto_map[target_proto]
+        packet_proto = str(packet.get('proto', ''))
+        return packet_proto == target_proto
+    
+    # action <action>
+    if tokens[0] == 'action' and len(tokens) >= 2:
+        return str(packet.get('action', '')).lower() == tokens[1]
+    
+    # src/dst port <port> or <port_range>
+    if len(tokens) >= 3 and tokens[0] in ('src', 'dst') and tokens[1] == 'port':
+        direction = tokens[0]
+        port_field = 'src_port' if direction == 'src' else 'dst_port'
+        port_value = packet.get(port_field)
+        if port_value is None or port_value == '':
+            return False
+        try:
+            port_value = int(port_value)
+        except (ValueError, TypeError):
+            return False
+        port_filter = tokens[2]
+        
+        # Range syntax: 1024..65535
+        if '..' in port_filter:
+            try:
+                low, high = port_filter.split('..')
+                return int(low) <= port_value <= int(high)
+            except ValueError:
+                return False
+        else:
+            try:
+                return port_value == int(port_filter)
+            except ValueError:
+                return False
+    
+    # src/dst net <cidr>
+    if len(tokens) >= 3 and tokens[0] in ('src', 'dst') and tokens[1] == 'net':
+        direction = tokens[0]
+        ip_field = 'src_ip' if direction == 'src' else 'dst_ip'
+        ip_value = packet.get(ip_field)
+        if ip_value is None or ip_value == '':
+            return False
+        try:
+            network = ipaddress.ip_network(tokens[2], strict=False)
+            ip_addr = ipaddress.ip_address(ip_value)
+            return ip_addr in network
+        except ValueError:
+            return False
+    
+    # src/dst ip <ip> (exact match)
+    if len(tokens) >= 3 and tokens[0] in ('src', 'dst') and tokens[1] == 'ip':
+        direction = tokens[0]
+        ip_field = 'src_ip' if direction == 'src' else 'dst_ip'
+        return str(packet.get(ip_field, '')).lower() == tokens[2]
+    
+    # len <operator><value> (e.g., len >100, len <=1500, len 64..1500)
+    if tokens[0] == 'len' and len(tokens) >= 2:
+        len_value = packet.get('len')
+        if len_value is None or len_value == '':
+            return False
+        try:
+            len_value = int(len_value)
+        except (ValueError, TypeError):
+            return False
+        len_filter = tokens[1]
+        
+        if '..' in len_filter:
+            try:
+                low, high = len_filter.split('..')
+                return int(low) <= len_value <= int(high)
+            except ValueError:
+                return False
+        elif len_filter.startswith('>='):
+            return len_value >= int(len_filter[2:])
+        elif len_filter.startswith('<='):
+            return len_value <= int(len_filter[2:])
+        elif len_filter.startswith('>'):
+            return len_value > int(len_filter[1:])
+        elif len_filter.startswith('<'):
+            return len_value < int(len_filter[1:])
+        else:
+            try:
+                return len_value == int(len_filter)
+            except ValueError:
+                return False
+    
+    # country <country_code> (case-insensitive)
+    if tokens[0] == 'country' and len(tokens) >= 2:
+        return str(packet.get('src_country', '')).lower() == tokens[1].lower()
+    
+    # flags <tcp_flags> (partial match, case-insensitive)
+    if tokens[0] == 'flags' and len(tokens) >= 2:
+        tcp_flags = str(packet.get('tcp_flags', '')).lower()
+        return tokens[1].lower() in tcp_flags
+    
+    return True
 
 
 bp = Blueprint('aed_reviewer', __name__, static_folder='static/aed_reviewer', static_url_path='/static/aed_reviewer/')
@@ -62,14 +222,17 @@ def after_request_func(response):
 
 @bp.post('/api/aed/validation')
 def aed_validation():
-    if 'aed_id' not in request.form or 'aed_password' not in request.form:
-        return {'success': False}
+    # POST should include JSON payload with 'aed_id' and 'aed_password'
+    data = request.get_json()
+    if not data or 'aed_id' not in data or 'aed_password' not in data:
+        return {'success': False, 'message': 'missing parameters'}
+
 
     # Checking if exist
-    if not os.path.exists(f"{app.config['EXPORT_PATH']}{request.form['aed_id']}"):
+    if not os.path.exists(f"{app.config['EXPORT_PATH']}{data['aed_id']}"):
         return {'success': False, 'message': 'project does not exist'}
     # If cookie key is provided
-    key = request.form['aed_password']
+    key = data['aed_password']
     # check if key is correctly encoded
     try:
         base64.urlsafe_b64decode(key)
@@ -78,14 +241,14 @@ def aed_validation():
     
     try:
         g.fernet = Fernet(key)
-        with open(f"{app.config['EXPORT_PATH']}{request.form['aed_id']}/global.json") as f:
+        with open(f"{app.config['EXPORT_PATH']}{data['aed_id']}/global.json") as f:
             decrypted = g.fernet.decrypt(f.read())
         global_config = json.loads(decrypted)
     except:
         return {'success': False, 'error': 'Key Error'}
 
     resp = make_response(jsonify({'success':True, 'name':global_config['system_name']}) )
-    resp.set_cookie(request.form['aed_id'], key, path=f"/aed_reviewer/api/{request.form['aed_id']}/", max_age=3600*24*30)
+    resp.set_cookie(data['aed_id'], key, path=f"/aed_reviewer/api/{data['aed_id']}/", max_age=3600*24*30)
     return resp
 
 @bp.get('/api/aed/add_project')
@@ -123,11 +286,13 @@ def aed_uncompress(aed_id):
         'AEDToolKit': "AEDToolKit.tar.bz2",
     }
     try:
+        print('Extracting AEDToolKit')
         with tarfile.open(os.path.join(app.config['EXPORT_PATH'], aed_id, 'inputs', saved_file['AEDToolKit']), 'r:bz2') as tar:
             for member in tar.getmembers():
                 if re.search(".+\.stats\/.*\.[json|log]", member.name):
                     member_name = member.name
                     member.name = os.path.basename(member.name)
+                    print(f"Extracting {member.name} to {os.path.join(app.config['EXPORT_PATH'], aed_id, 'inputs', "stats", member_name.split('/')[-2])}")
                     tar.extract(member, path=os.path.join(app.config['EXPORT_PATH'], aed_id, 'inputs', "stats", member_name.split('/')[-2]))
         tar.close()
     except:
@@ -137,17 +302,25 @@ def aed_uncompress(aed_id):
                  'syslog','syslog.0.gz','syslog.1.gz','syslog.2.gz','syslog.3.gz','syslog.4.gz',
                  'tuba/tuba.db','tuba/cfg.db','tuba/events.db','tuba/feed.db','tuba/log.db','smartctl_sdc.txt']
     base = None
+    print('Extracting DiagFile')
     with tarfile.open(os.path.join(app.config['EXPORT_PATH'], aed_id, 'inputs', saved_file['DiagFile']), 'r:bz2') as tar:
-        for member in tar.getmembers():
-            base = member.name.split('/')[0]
-            break
+        base = tar.getmembers()[0].name.split('/')[0]
+        
         for file_name in file_list:
             try:
                 member = tar.getmember(f"{base}/{file_name}")
                 member.name = file_name
+                print(f"Extracting {member.name} to {os.path.join(app.config['EXPORT_PATH'], aed_id, 'inputs')}")
                 tar.extract(member, path=os.path.join(app.config['EXPORT_PATH'], aed_id, 'inputs'))
             except KeyError:
                 print(f"Warning: File '{base}/{file_name}' not found in the tar archive.")
+        for member in tar.getmembers():
+            # Extract statusdump files
+            if re.search(".+statusdump_history\/statusdump\.[0-9]+\.txt\.bz2", member.name):
+                member_name = member.name
+                member.name = os.path.basename(member.name)
+                print(f"Extracting {member.name} to {os.path.join(app.config['EXPORT_PATH'], aed_id, 'inputs', 'tuba', 'statusdump_history')}")
+                tar.extract(member, path=os.path.join(app.config['EXPORT_PATH'], aed_id, 'inputs', 'tuba', 'statusdump_history'))
     return {'success': True, 'message': f'files uncompresses successfully', 'aed_id':aed_id}
     
 
@@ -179,6 +352,35 @@ def aed_parse(aed_id):
     resp.set_cookie(aed_id, fernet_key.decode("utf-8"), path=f"/aed_reviewer/api/{aed_id}/", max_age=3600*24*30)
     # shutil.rmtree(os.path.join(app.config[''], aed_id, "inputs"), ignore_errors=True)
     return resp
+
+@bp.get('/api/<string:aed_id>/statusdump_parse')
+def statusdump_parse(aed_id):
+    print(f"Parsing statusdump for AED ID: {aed_id}")
+
+    input_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', app.config['EXPORT_PATH'], aed_id, 'inputs'))
+    output_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', app.config['EXPORT_PATH'], aed_id))
+    script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'scripts', 'statusdump_parse'))
+    print("Running statusdump_parse")
+    print([f"{script_path} -i {input_path} -o {output_path}"])
+
+    try:
+        result = subprocess.run(
+            [script_path, '-i', input_path, '-o', output_path],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        print("statusdump_parse output:", result.stdout)
+    except subprocess.CalledProcessError as e:
+        print("statusdump_parse failed:", e.stderr)
+        return {'success': False, 'error': 'statusdump_parse failed', 'details': e.stderr}
+
+
+    resp = make_response(jsonify({'success': True, 'aed_id':aed_id, 'message': 'statusdump_parse completed successfully'}))
+    return resp
+
+
 
 @bp.post('/api/aed/add')
 def aed_add():  
@@ -213,6 +415,7 @@ def aed_add():
             return {'success': False, 'message': f'{key} Missing'}
         
     # Processing Files
+    print('Extracting AEDToolKit')
     with tarfile.open(os.path.join(app.config['EXPORT_PATH'], project_id, 'inputs', saved_file['AEDToolKit']), 'r:bz2') as tar:
         for member in tar.getmembers():
             if re.search(".+\.stats\/.*\.[json|log]", member.name):
@@ -223,12 +426,14 @@ def aed_add():
 
     file_list = ['config_show_saved','ifconfig.txt','licenses.txt','hardware.txt','ntp.txt','pkgs.txt','backup.log',
                  'syslog','syslog.0.gz','syslog.1.gz','syslog.2.gz','syslog.3.gz','syslog.4.gz',
-                 'tuba/tuba.db','tuba/cfg.db','tuba/events.db','tuba/feed.db','tuba/log.db','smartctl_sdc.txt']
+                 'tuba/tuba.db','tuba/cfg.db','tuba/events.db','tuba/feed.db','tuba/log.db','smartctl_sdc.txt', 'tuba/statusdump_history/']
     base = None
+    print('Extracting DiagFile')
     with tarfile.open(os.path.join(app.config['EXPORT_PATH'], project_id, 'inputs', saved_file['DiagFile']), 'r:bz2') as tar:
         for member in tar.getmembers():
             base = member.name.split('/')[0]
-            break
+            print(member.name)
+            print(os.path.basename(member.name))
         for file_name in file_list:
             try:
                 member = tar.getmember(f"{base}/{file_name}")
@@ -671,6 +876,107 @@ def pg_dumps_get_compressed(pg_id, aed_id):
     response.headers['Content-Encoding'] = 'gzip'
     return response
 
+
+@bp.post('/api/<string:aed_id>/dumps/')
+@key_required
+def dumps_get_compressed(aed_id):
+    # We will look in all file in dumps folder
+    # User will submit as a POST request (JSON) an fcap filter string
+    # For exemple # 
+    # - 'dst port 80 and src port 1024..65535'
+    # - 'dst net 192.168.1.0/24 and dst port 80'
+    # - 'proto tcp'
+    # We will apply this filter on all dumps files and return the merged result as a compressed JSON file
+    # Results are paginated with 5000 packets per page
+    
+    PAGE_SIZE = 5000
+    CACHE_TTL = 3600  # Cache expires after 1 hour
+    
+    request_data = request.get_json()
+    if 'filter' not in request_data:
+        return {'success': False, 'message': f"Missing filter field"}
+    filter_str = request_data['filter']
+    page = request_data.get('page', 1)
+    
+    dumps_folder = f"{app.config['EXPORT_PATH']}/{aed_id}/stats/dumps/"
+    if not os.path.exists(dumps_folder):
+        return {'success': False, 'message': f"No dumps available"}
+    
+    # Generate cache key based on filter string
+    cache_key = hashlib.md5(filter_str.encode()).hexdigest()
+    cache_file = os.path.join(dumps_folder, f"_cache_{cache_key}.json")
+    
+    # Clean up old cache files (older than CACHE_TTL)
+    for fname in os.listdir(dumps_folder):
+        if fname.startswith('_cache_') and fname.endswith('.json'):
+            fpath = os.path.join(dumps_folder, fname)
+            if time.time() - os.path.getmtime(fpath) > CACHE_TTL:
+                try:
+                    os.remove(fpath)
+                except:
+                    pass
+    
+    # Check if cache exists and is valid
+    merged_data = None
+    if os.path.exists(cache_file):
+        try:
+            cache_age = time.time() - os.path.getmtime(cache_file)
+            if cache_age < CACHE_TTL:
+                with open(cache_file, 'r') as f:
+                    merged_data = json.load(f)
+        except:
+            pass
+    
+    # If no cache, perform the search and cache the results
+    if merged_data is None:
+        merged_data = []
+        for file_name in os.listdir(dumps_folder):
+            if not file_name.endswith('.json') or file_name.startswith('_cache_'):
+                continue
+            with open(os.path.join(dumps_folder, file_name)) as f:
+                decrypted = g.fernet.decrypt(f.read())
+            data = json.loads(decrypted)
+            for packet in data:
+                if apply_filter(packet, filter_str):
+                    merged_data.append(packet)
+        
+        # Save to cache file
+        try:
+            with open(cache_file, 'w') as f:
+                json.dump(merged_data, f)
+        except:
+            pass
+    
+    # Calculate pagination
+    total_packets = len(merged_data)
+    total_pages = (total_packets + PAGE_SIZE - 1) // PAGE_SIZE if total_packets > 0 else 1
+    page = max(1, min(page, total_pages))
+    
+    start_idx = (page - 1) * PAGE_SIZE
+    end_idx = start_idx + PAGE_SIZE
+    page_data = merged_data[start_idx:end_idx]
+    
+    result = {
+        'packets': page_data,
+        'pagination': {
+            'page': page,
+            'page_size': PAGE_SIZE,
+            'total_packets': total_packets,
+            'total_pages': total_pages,
+            'has_next': page < total_pages,
+            'has_prev': page > 1
+        }
+    }
+    
+    content = gzip.compress(json.dumps(result).encode('utf8'), 5)
+    response = make_response(content)
+    response.headers['Content-length'] = len(content)
+    response.headers['Content-Encoding'] = 'gzip'
+    return response
+
+
+
+
 # @bp.get('/api/protection_groups/<string:pg_id>/dumps/')
 # def pg_dumps_get(pg_id):
 #     if not os.path.exists(f"{app.config['SOURCE_PATH']}/stats/dumps/{pg_id}.json"):
@@ -688,3 +994,219 @@ def pg_dump_stats_get(pg_id, aed_id):
         decrypted = g.fernet.decrypt(f.read())
     return jsonify(json.loads(decrypted))
 
+
+@bp.get('/api/<string:aed_id>/statusdump/interfaces')
+def statusdump_intf_get(aed_id):
+    # Open the sqlite3 interface_stats.db
+    db_path = os.path.join(app.config['EXPORT_PATH'], aed_id, 'interface_stats.db')
+    if not os.path.exists(db_path):
+        return {'success': False, 'message': 'Database does not exist'}
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    # select distinct iface from interface_stats
+    cursor.execute('SELECT DISTINCT iface FROM interface_stats')
+    data = cursor.fetchall()
+    conn.close()
+    result = []
+    for row in data:
+        result.append(row[0])
+    return jsonify({'success': True, 'data': result})
+
+@bp.get('/api/<string:aed_id>/statusdump/interfaces/max')
+def statusdump_intf_max_get(aed_id):
+    # Open the sqlite3 interface_stats.db
+    db_path = os.path.join(app.config['EXPORT_PATH'], aed_id, 'interface_stats.db')
+    if not os.path.exists(db_path):
+        return {'success': False, 'message': 'Database does not exist'}
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    # select distinct iface from interface_stats
+    cursor.execute('SELECT iface, MAX(rx_offered_rate_bps) FROM interface_stats GROUP BY iface')
+    cursor.execute("""
+    SELECT iface, rx_offered_rate_bps, MIN(date) as date
+    FROM interface_stats i
+    WHERE rx_offered_rate_bps = (
+        SELECT MAX(rx_offered_rate_bps) FROM interface_stats WHERE iface = i.iface
+    )
+    GROUP BY iface
+    """)
+    data = cursor.fetchall()
+    conn.close()
+    result = {}
+    for row in data:
+        result[row[0]] = {'max': row[1], 'date': row[2]}
+    return jsonify({'success': True, 'data': result})
+    
+
+@bp.get('/api/<string:aed_id>/statusdump/interface/<string:iface>/<string:unit>')
+def statusdump_int_get(aed_id, iface, unit='bps'):
+    # Get optional start_date and last_date query parameters
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    # Steps in minutes
+    step = request.args.get('step', default=300, type=int)
+    if step < 60:
+        return {'success': False, 'message': 'Step must be at least 60 seconds'}
+
+    db_path = os.path.join(app.config['EXPORT_PATH'], aed_id, 'interface_stats.db')
+    if not os.path.exists(db_path):
+        return {'success': False, 'message': 'Database does not exist'}
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    # Build SQL query with optional date filtering
+    params = [iface]
+    date_filter = ''
+    if start_date and end_date:
+        date_filter = ' AND date BETWEEN ? AND ?'
+        params.extend([start_date, end_date])
+    elif start_date:
+        date_filter = ' AND date >= ?'
+        params.append(datetime.fromtimestamp(int(start_date)).strftime('%Y-%m-%d %H:%M:%S'))
+    elif end_date:
+        date_filter = ' AND date <= ?'
+        params.append(datetime.fromtimestamp(int(end_date)).strftime('%Y-%m-%d %H:%M:%S'))
+
+
+    # Aggregate into 5-minute buckets and compute average rx_offered_rate_bps
+    query = (
+        f"SELECT datetime(CAST(CAST(strftime('%s', date) / {step} AS INTEGER) * {step} AS INTEGER),'unixepoch') as bucket, "
+        f"AVG(rx_offered_rate_{unit}), AVG(tx_transmitted_rate_{unit}) "
+        "FROM interface_stats WHERE iface=?"
+        + date_filter +
+        f" GROUP BY CAST(strftime('%s', date) / {step} AS INTEGER) "
+        "ORDER BY bucket"
+    )
+    print(query)
+
+    cursor.execute(query, params)
+    data = cursor.fetchall()
+    conn.close()
+    result = []
+    for row in data:
+        result.append([date_to_timestamp(row[0]), round(row[1]), round(row[2])])
+        # result.append([row[0], row[1], row[2]])
+    return jsonify({'success': True, 'data': result})
+
+
+@bp.get('/api/<string:aed_id>/statusdump/pair/<int:pair>/<string:unit>')
+def statusdump_pair_get(aed_id, pair, unit='bps'):
+    # Get optional start_date and last_date query parameters
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    # Steps in minutes
+    step = request.args.get('step', default=300, type=int)
+    if step < 60:
+        return {'success': False, 'message': 'Step must be at least 60 seconds'}
+
+    db_path = os.path.join(app.config['EXPORT_PATH'], aed_id, 'interface_stats.db')
+    if not os.path.exists(db_path):
+        return {'success': False, 'message': 'Database does not exist'}
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    # Build SQL query with optional date filtering
+    params_ext = [f'ext{pair}']
+    params_int = [f'int{pair}']
+    date_filter = ''
+    if start_date and end_date:
+        date_filter = ' AND date BETWEEN ? AND ?'
+        params_ext.extend([start_date, end_date])
+        params_int.extend([start_date, end_date])
+    elif start_date:
+        date_filter = ' AND date >= ?'
+        params_ext.append(datetime.fromtimestamp(int(start_date)).strftime('%Y-%m-%d %H:%M:%S'))
+        params_int.append(datetime.fromtimestamp(int(start_date)).strftime('%Y-%m-%d %H:%M:%S'))
+    elif end_date:
+        date_filter = ' AND date <= ?'
+        params_ext.append(datetime.fromtimestamp(int(end_date)).strftime('%Y-%m-%d %H:%M:%S'))
+        params_int.append(datetime.fromtimestamp(int(end_date)).strftime('%Y-%m-%d %H:%M:%S'))
+
+
+    # Aggregate into 5-minute buckets and compute average rx_offered_rate_bps
+    query = (
+        f"SELECT datetime(CAST(CAST(strftime('%s', date) / {step} AS INTEGER) * {step} AS INTEGER),'unixepoch') as bucket, "
+        f"AVG(rx_offered_rate_{unit}), AVG(tx_transmitted_rate_{unit}) "
+        "FROM interface_stats WHERE iface=?"
+        + date_filter +
+        f" GROUP BY CAST(strftime('%s', date) / {step} AS INTEGER) "
+        "ORDER BY bucket"
+    )
+
+    cursor.execute(query, params_ext)
+    data_ext = cursor.fetchall()
+
+    cursor.execute(query, params_int)
+    data_int = cursor.fetchall()
+
+    conn.close()
+    result = []
+    for i in range(min(len(data_ext), len(data_int))):
+        
+        result.append([date_to_timestamp(data_ext[i][0]), round(data_ext[i][1]), round(data_int[i][2]), round(data_ext[i][2]), round(data_int[i][1])])
+        # result.append([row[0], row[1], row[2]])
+    return jsonify({'success': True, 'data': result, '_comment': 'Columns are: [timestamp, ext_rx, int_tx, ext_tx, int_rx]'})
+
+@bp.get('/api/<string:aed_id>/statusdump/traffic/combined/<string:unit>')
+def statusdump_traffic_combined_get(aed_id, unit='bps'):
+    # Get optional start_date and last_date query parameters
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    # Steps in minutes
+    step = request.args.get('step', default=300, type=int)
+    if step < 60:
+        return {'success': False, 'message': 'Step must be at least 60 seconds'}
+
+    db_path = os.path.join(app.config['EXPORT_PATH'], aed_id, 'interface_stats.db')
+    if not os.path.exists(db_path):
+        return {'success': False, 'message': 'Database does not exist'}
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    # Build SQL query with optional date filtering
+    params = []
+    date_filter = ''
+    if start_date and end_date:
+        date_filter = ' AND date BETWEEN ? AND ?'
+        params.extend([start_date, end_date])
+    elif start_date:
+        date_filter = ' AND date >= ?'
+        params.append(datetime.fromtimestamp(int(start_date)).strftime('%Y-%m-%d %H:%M:%S'))
+    elif end_date:
+        date_filter = ' AND date <= ?'
+        params.append(datetime.fromtimestamp(int(end_date)).strftime('%Y-%m-%d %H:%M:%S'))
+
+
+    # Query to combine the rx from all ext* interaces
+    query_in = (
+        f"SELECT datetime(CAST(strftime('%s', date) AS INTEGER),'unixepoch'), SUM(rx_offered_rate_{unit}) as total_rx "
+        "FROM interface_stats WHERE iface LIKE 'ext%'"
+        + date_filter +
+        " GROUP BY date "
+        "ORDER BY date"
+    )
+
+    query_out = (
+        f"SELECT datetime(CAST(strftime('%s', date) AS INTEGER),'unixepoch'), SUM(rx_offered_rate_{unit}) as total_rx "
+        "FROM interface_stats WHERE iface LIKE 'int%'"
+        + date_filter +
+        " GROUP BY date "
+        "ORDER BY date"
+    )
+
+    cursor.execute(query_in, params)
+    data_in = cursor.fetchall()
+
+    cursor.execute(query_out, params)
+    data_out = cursor.fetchall()
+
+
+    conn.close()
+    result = []
+    for i in range(min(len(data_in), len(data_out))):
+        result.append([date_to_timestamp(data_in[i][0]), round(data_in[i][1]), round(data_out[i][1])])
+        # result.append([row[0], row[1], row[2]])
+    return jsonify({'success': True, 'data': result, '_comment': 'Columns are: [timestamp, total_rx, total_tx]'})
+
+def date_to_timestamp(date_str):
+    return int(datetime.timestamp(datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S'))*1000)

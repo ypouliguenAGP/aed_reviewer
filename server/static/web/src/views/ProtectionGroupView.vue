@@ -1,5 +1,5 @@
 <script>
-import Thresholds from '@/components/Thresholds.vue';
+import Thresholds from '../components/Thresholds.vue';
 export default {
   components: {
     Thresholds

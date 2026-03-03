@@ -38,6 +38,22 @@ const props = defineProps({
                     <td v-for="level in levels" :class="protections['protectionLevels'][level]['dnsQuery']['rate'] < protections['protectionLevels'][level]['dnsNxdomain']['rate'] ? 'text-danger': ''">{{ protections['protectionLevels'][level]['dnsNxdomain']['rate'] }}</td>
                 </tr>
 
+                <tr class="text-capitalize" v-if="protections['protectionLevels']['low']['dnsAmp']">
+                    <th>DNS Amp Protection</th>
+                    <td v-for="level in levels" :class="protections['protectionLevels'][level]['dnsAmp']['enabled'] ? 'text-success': 'text-danger'">{{ protections['protectionLevels'][level]['dnsAmp']['enabled'] }}</td>
+                </tr>
+
+                <tr class="text-capitalize" v-if="protections['protectionLevels']['low']['dnsNonexistent']">
+                    <th>DNS Nonexistent Monitor</th>
+                    <td v-for="level in levels" :class="protections['protectionLevels'][level]['dnsNonexistent']['enabled'] ? 'text-success': 'text-danger'">{{ protections['protectionLevels'][level]['dnsNonexistent']['enabled'] }}</td>
+                </tr>
+                <tr class="text-capitalize" v-if="protections['protectionLevels']['low']['dnsNonexistent']">
+                    <th>DNS Nonexistent Enforced</th>
+                    <td v-for="level in levels" :class="protections['protectionLevels'][level]['dnsNonexistent']['enforced'] ? 'text-success': 'text-danger'">{{ protections['protectionLevels'][level]['dnsNonexistent']['enforced'] }}</td>
+                </tr>
+
+                
+
 
             </tbody>
         </table>

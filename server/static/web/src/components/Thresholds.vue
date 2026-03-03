@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue';
-import { humanUnits } from '@/composables/helpers';
+import { humanUnits } from '../composables/helpers';
 
 const props = defineProps({
     alert_thresholds: Object,

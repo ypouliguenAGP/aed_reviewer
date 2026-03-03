@@ -587,7 +587,11 @@ def processAEDConfig(basedir):
         if not os.path.exists(f"{EXPORT_PATH}/stats/dumps/"):
             os.makedirs(f"{EXPORT_PATH}/stats/dumps/")
         for pg_id in pgs:
-            entries = processPacketDump(pg_id, FOLDER_NAME)
+            try:
+                entries = processPacketDump(pg_id, FOLDER_NAME)
+            except FileNotFoundError:
+                print(f"No dump file for PG {pg_id}, skipping...")
+                continue
             print(f"{len(entries)} Packets for PG {pg_id}")
             encryptSave(fernet, f"{EXPORT_PATH}/stats/dumps/{pg_id}.json", entries)
             # with open(f"{EXPORT_PATH}/stats/dumps/{pg_id}.json", "w") as outfile:

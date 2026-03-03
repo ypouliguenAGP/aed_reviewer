@@ -33,6 +33,7 @@ const AedToolKitFile = ref()
 const DiagFileInput = ref(null)
 const DiagFile = ref()
 const process_logs = ref([])
+const key = ref('')
 
 function handleAedToolKitChange() {
     AedToolKitFile.value = AedToolKitInput.value.files
@@ -47,24 +48,40 @@ function uploadFile(file, project_id){
         let formData = new FormData
         formData.append('file', file)
         formData.append('project_id', project_id)
-        fetch( '/aed_reviewer/api/aed/upload', {
-        method: 'POST',
-        body: formData
-        })
-        .then(response => {
-        if (response.ok) {
-            return response.json();
-        } else {
-            throw new Error('File upload failed');
-        }
-        })
-        .then((data) => {
-            if (!(data.success)) throw new Error('File upload failed');
-            resolve(true)
-        })
-        .catch(error => {
-        console.error('Error uploading file:', error);
+        // Create a variable to store upload progress
+        const uploadProgress = ref(0);
+
+        // Track upload progress
+        formData.get('file') && fetch('/aed_reviewer/api/aed/upload', {
+            method: 'POST',
+            body: formData,
+            // Use XMLHttpRequest for progress tracking
+            signal: undefined // placeholder, fetch does not support progress natively
         });
+
+        // Use XMLHttpRequest for progress tracking
+        let xhr = new XMLHttpRequest();
+        xhr.upload.onprogress = function(event) {
+            if (event.lengthComputable) {
+            uploadProgress.value = Math.round((event.loaded / event.total) * 100);
+            console.log(`File is ${uploadProgress.value}% uploaded.`);
+            process_logs.value[process_logs.value.length - 1] = process_logs.value[process_logs.value.length - 1].split(' - ')[0] + ` - (${uploadProgress.value}%)`
+            }
+        };
+        xhr.open('POST', '/aed_reviewer/api/aed/upload');
+        xhr.onload = function() {
+            if (xhr.status >= 200 && xhr.status < 300) {
+            resolve(true);
+            } else {
+            console.error('Error uploading file:', xhr.statusText);
+            }
+        };
+        xhr.onerror = function() {
+            console.error('Error uploading file:', xhr.statusText);
+        };
+        xhr.send(formData);
+        return;
+        
     })
 }
 
@@ -108,6 +125,26 @@ function parse_project(project_id){
         fetch('/aed_reviewer/api/'+project_id+'/parse')
         .then(response => {
         if (response.ok) {
+            return response.json().then(data => {
+                key.value = data.key
+                return data
+            });
+        } else {
+            throw new Error('Parsing failed');
+        }
+        })
+        .then((data) => {
+            if (!(data.success)) throw new Error('Parsing failed');
+            resolve(true)
+        })
+    })
+}
+
+function parse_statusdump(project_id){
+    return new Promise((resolve) => {
+        fetch('/aed_reviewer/api/'+project_id+'/statusdump_parse')
+        .then(response => {
+        if (response.ok) {
             return response.json();
         } else {
             throw new Error('Parsing failed');
@@ -131,11 +168,11 @@ async function processSubmit() {
     const project_id = await create_project()
     process_logs.value.push('Done: Project: '+project_id)
     
-    console.log('Uploading AedToolKitFile ...')
-    process_logs.value.push('Uploading AedToolKitFile')
+    console.log('Uploading AedToolKitFile')
+    process_logs.value.push('Uploading AedToolKitFile - (0%)')
     if (await uploadFile(AedToolKitFile.value[0], project_id) != true) process_logs.value.push("Error")
     process_logs.value.push('Done')
-    process_logs.value.push('Uploading DiagFile ...')
+    process_logs.value.push('Uploading DiagFile - (0%)')
     console.log('Uploading DiagFile')
     if (await uploadFile(DiagFile.value[0], project_id) != true) process_logs.value.push("Error")
     process_logs.value.push('Done')
@@ -147,73 +184,16 @@ async function processSubmit() {
     console.log('Parsing')
     if (await parse_project(project_id) != true) process_logs.value.push("Error Parsing")
     process_logs.value.push('Done')
+    process_logs.value.push('StatusDump Parsing ...')
+    console.log('Parsing')
+    if (await parse_statusdump(project_id) != true) process_logs.value.push("Error Parsing")
+    process_logs.value.push('Done')
     console.log('Done')
+    // print Key
+    process_logs.value.push('Project Key: '+key.value)
     process_logs.value.push('<a href=\"/aed_reviewer/'+project_id+'/protection-groups" class="btn btn-primary">'+project_id+'</a>')
     
 }
 
-
-function upload(file) {
-  let xhr = new XMLHttpRequest();
-
-  // listen for upload progress
-  xhr.upload.onprogress = function(event) {
-    let percent = Math.round(100 * event.loaded / event.total);
-    console.log(`File is ${percent} uploaded.`);
-  };
-
-  // handle error
-  xhr.upload.onerror = function() {
-    console.log(`Error during the upload: ${xhr.status}.`);
-  };
-
-  // upload completed successfully
-  xhr.onload = function() {
-    console.log('Upload completed successfully.');
-  };
-
-  xhr.open('POST', '/aed_reviewer/api/aed/upload');
-  xhr.send(file);
-}
-
-
-async function fetchForm(form, options = {}) 
-{
-    var method = options.method || form.getAttribute('method') || 'get';
-    var action = options.url || form.getAttribute('action');
-    var data   = new FormData(form);
-    var xhr    = new XMLHttpRequest(); 
-
-    return new Promise(function(success, failure) 
-    {
-        xhr.responseType = 'blob';
-        xhr.onreadystatechange = function() 
-        {
-            if (xhr.readyState != 4) { // done
-               return; 
-            }
-
-            var response = new Response(xhr.response, { 
-                url         : xhr.responseURL, 
-                status      : xhr.status, 
-                statusText  : xhr.statusText
-            });
-            
-            success(response);
-        }        
-
-        xhr.addEventListener('error', () => 
-        { 
-            failure( new TypeError('Failed to fetch') ) 
-        });
-
-        if (options.progress) {
-            xhr.addEventListener('progress', options.progress);
-        }
-
-        xhr.open(method, action, true);
-        xhr.send(data);
-    });
-}
 
 </script>

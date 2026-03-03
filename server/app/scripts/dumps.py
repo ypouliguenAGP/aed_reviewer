@@ -8,7 +8,7 @@ def processPacketDump(pg_id, FOLDER_NAME):
 
     if not os.path.exists(f"{FOLDER_NAME}/stats/dumps/{pg_id}.log"):
         print(f"File {FOLDER_NAME}/stats/dumps/{pg_id}.log does not exit")
-        return False
+        raise FileNotFoundError(f"File {FOLDER_NAME}/stats/dumps/{pg_id}.log does not exit")
 
     entries = []        
     with open(f"{FOLDER_NAME}/stats/dumps/{pg_id}.log") as f:
