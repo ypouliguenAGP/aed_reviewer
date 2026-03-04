@@ -944,6 +944,8 @@ def dumps_get_compressed(aed_id):
     filter_str = request_data['filter']
     page = request_data.get('page', 1)
     use_cache = request_data.get('use_cache', True)
+    PAGE_SIZE = request_data.get('page_size', PAGE_SIZE)
+    
     
     dumps_folder = f"{app.config['EXPORT_PATH']}/{aed_id}/stats/dumps/"
     if not os.path.exists(dumps_folder):
