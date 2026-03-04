@@ -31,7 +31,7 @@ def apply_filter(packet, filter_str):
     - 'src ip 192.168.1.1' / 'dst ip 10.0.0.1'
     - 'action drop' / 'action pass'
     - 'country FR' / 'country US'
-    - 'flags SYN' / 'flags ACK'
+    - 'flags S' / 'flags SA' / 'flags A'
     - Logical operators: 'and', 'or'
     - Negation: 'not dst port 80'
     
@@ -47,78 +47,125 @@ def apply_filter(packet, filter_str):
         "src_country": "FR",
         "action": "pass",
         "tcp_flags": "S" (optional, for TCP)
+    },
+    {
+        "#": 3,
+        "len": "394",
+        "src_ip": "213.0.185.5",
+        "dst_ip": "194.50.38.6",
+        "proto": "50",
+        "src_country": "ES",
+        "action": "pass"
+    },
+    {
+        "#": 4,
+        "len": "154",
+        "src_ip": "213.0.185.5",
+        "dst_ip": "194.50.38.6",
+        "proto": "50",
+        "src_country": "ES",
+        "action": "pass"
+    },
+    {
+        "#": 5,
+        "len": "242",
+        "src_ip": "15.188.46.43",
+        "src_port": "4500",
+        "dst_ip": "194.50.38.6",
+        "dst_port": "4500",
+        "proto": "17",
+        "src_country": "FR",
+        "action": "pass"
+    },
+    {
+        "#": 6,
+        "len": "654",
+        "src_ip": "63.33.240.206",
+        "src_port": "443",
+        "dst_ip": "194.50.38.6",
+        "dst_port": "31098",
+        "proto": "6",
+        "tcp_flags": "AP",
+        "src_country": "IE",
+        "action": "pass"
     }
     """
     if not filter_str or filter_str.strip() == '':
         return True
-    
+
     filter_str = filter_str.strip().lower()
-    
+
     # Split by 'or' first (lower precedence)
     if ' or ' in filter_str:
         parts = filter_str.split(' or ')
         return any(apply_filter(packet, part.strip()) for part in parts)
-    
+
     # Split by 'and' (higher precedence)
     if ' and ' in filter_str:
         parts = filter_str.split(' and ')
         return all(apply_filter(packet, part.strip()) for part in parts)
-    
+
     # Handle negation
     if filter_str.startswith('not '):
         return not apply_filter(packet, filter_str[4:].strip())
-    
-    # Parse individual conditions
+
     tokens = filter_str.split()
-    
-    if len(tokens) == 0:
+    if not tokens:
         return True
-    
+
+    def to_int(value):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
     # proto <protocol>
     if tokens[0] == 'proto' and len(tokens) >= 2:
-        proto_map = {'tcp': '6', 'udp': '17', 'icmp': '1', 'gre': '47', 'esp': '50', 'ah': '51'}
+        proto_map = {'tcp': '6', 'udp': '17', 'icmp': '1', 'gre': '47', 'esp': '50'}
         target_proto = tokens[1]
         if target_proto in proto_map:
             target_proto = proto_map[target_proto]
-        packet_proto = str(packet.get('proto', ''))
-        return packet_proto == target_proto
-    
+        return str(packet.get('proto', '')).lower() == target_proto
+
     # action <action>
     if tokens[0] == 'action' and len(tokens) >= 2:
         return str(packet.get('action', '')).lower() == tokens[1]
-    
+
+    # country <country_code>
+    if tokens[0] == 'country' and len(tokens) >= 2:
+        return str(packet.get('src_country', '')).lower() == tokens[1].lower()
+
+    # flags <tcp_flags> (partial match)
+    if tokens[0] == 'flags' and len(tokens) >= 2:
+        tcp_flags = str(packet.get('tcp_flags', '')).lower()
+        return tokens[1].lower() in tcp_flags
+
     # src/dst port <port> or <port_range>
     if len(tokens) >= 3 and tokens[0] in ('src', 'dst') and tokens[1] == 'port':
         direction = tokens[0]
         port_field = 'src_port' if direction == 'src' else 'dst_port'
-        port_value = packet.get(port_field)
-        if port_value is None or port_value == '':
-            return False
-        try:
-            port_value = int(port_value)
-        except (ValueError, TypeError):
+        port_value = to_int(packet.get(port_field))
+        if port_value is None:
             return False
         port_filter = tokens[2]
-        
-        # Range syntax: 1024..65535
+
         if '..' in port_filter:
             try:
                 low, high = port_filter.split('..')
                 return int(low) <= port_value <= int(high)
             except ValueError:
                 return False
-        else:
-            try:
-                return port_value == int(port_filter)
-            except ValueError:
-                return False
-    
+        try:
+            return port_value == int(port_filter)
+        except ValueError:
+            return False
+
     # src/dst net <cidr>
     if len(tokens) >= 3 and tokens[0] in ('src', 'dst') and tokens[1] == 'net':
         direction = tokens[0]
         ip_field = 'src_ip' if direction == 'src' else 'dst_ip'
         ip_value = packet.get(ip_field)
-        if ip_value is None or ip_value == '':
+        if not ip_value:
             return False
         try:
             network = ipaddress.ip_network(tokens[2], strict=False)
@@ -126,53 +173,39 @@ def apply_filter(packet, filter_str):
             return ip_addr in network
         except ValueError:
             return False
-    
+
     # src/dst ip <ip> (exact match)
     if len(tokens) >= 3 and tokens[0] in ('src', 'dst') and tokens[1] == 'ip':
         direction = tokens[0]
         ip_field = 'src_ip' if direction == 'src' else 'dst_ip'
         return str(packet.get(ip_field, '')).lower() == tokens[2]
-    
+
     # len <operator><value> (e.g., len >100, len <=1500, len 64..1500)
     if tokens[0] == 'len' and len(tokens) >= 2:
-        len_value = packet.get('len')
-        if len_value is None or len_value == '':
-            return False
-        try:
-            len_value = int(len_value)
-        except (ValueError, TypeError):
+        len_value = to_int(packet.get('len'))
+        if len_value is None:
             return False
         len_filter = tokens[1]
-        
+
         if '..' in len_filter:
             try:
                 low, high = len_filter.split('..')
                 return int(low) <= len_value <= int(high)
             except ValueError:
                 return False
-        elif len_filter.startswith('>='):
+        if len_filter.startswith('>='):
             return len_value >= int(len_filter[2:])
-        elif len_filter.startswith('<='):
+        if len_filter.startswith('<='):
             return len_value <= int(len_filter[2:])
-        elif len_filter.startswith('>'):
+        if len_filter.startswith('>'):
             return len_value > int(len_filter[1:])
-        elif len_filter.startswith('<'):
+        if len_filter.startswith('<'):
             return len_value < int(len_filter[1:])
-        else:
-            try:
-                return len_value == int(len_filter)
-            except ValueError:
-                return False
-    
-    # country <country_code> (case-insensitive)
-    if tokens[0] == 'country' and len(tokens) >= 2:
-        return str(packet.get('src_country', '')).lower() == tokens[1].lower()
-    
-    # flags <tcp_flags> (partial match, case-insensitive)
-    if tokens[0] == 'flags' and len(tokens) >= 2:
-        tcp_flags = str(packet.get('tcp_flags', '')).lower()
-        return tokens[1].lower() in tcp_flags
-    
+        try:
+            return len_value == int(len_filter)
+        except ValueError:
+            return False
+
     return True
 
 
@@ -473,6 +506,16 @@ def pgs_get(aed_id):
     with open(f"{app.config['EXPORT_PATH']}{aed_id}/pgs.json") as f:
         decrypted = g.fernet.decrypt(f.read())
     return jsonify(json.loads(decrypted))
+
+def pgs_list(aed_id):
+    with open(f"{app.config['EXPORT_PATH']}{aed_id}/pgs.json") as f:
+        decrypted = g.fernet.decrypt(f.read())   
+    pgs_id = {} 
+    pgs = json.loads(decrypted)
+    for pg in pgs:
+        pgs_id[pg] = pgs[pg]['name']
+    return pgs_id
+
 
 @bp.get('/api/<string:aed_id>/master_filter_list')
 @key_required
@@ -889,20 +932,27 @@ def dumps_get_compressed(aed_id):
     # We will apply this filter on all dumps files and return the merged result as a compressed JSON file
     # Results are paginated with 5000 packets per page
     
+
+    
     PAGE_SIZE = 5000
     CACHE_TTL = 3600  # Cache expires after 1 hour
+    from_cache = False
     
     request_data = request.get_json()
     if 'filter' not in request_data:
         return {'success': False, 'message': f"Missing filter field"}
     filter_str = request_data['filter']
     page = request_data.get('page', 1)
+    use_cache = request_data.get('use_cache', True)
     
     dumps_folder = f"{app.config['EXPORT_PATH']}/{aed_id}/stats/dumps/"
     if not os.path.exists(dumps_folder):
         return {'success': False, 'message': f"No dumps available"}
     
-    # Generate cache key based on filter string
+    # Get PGs List to add to each packet for info purposes
+    pgs = pgs_list(aed_id)
+    
+    # # Generate cache key based on filter string
     cache_key = hashlib.md5(filter_str.encode()).hexdigest()
     cache_file = os.path.join(dumps_folder, f"_cache_{cache_key}.json")
     
@@ -916,14 +966,16 @@ def dumps_get_compressed(aed_id):
                 except:
                     pass
     
-    # Check if cache exists and is valid
+    # # Check if cache exists and is valid
     merged_data = None
-    if os.path.exists(cache_file):
+    if use_cache and os.path.exists(cache_file):
         try:
             cache_age = time.time() - os.path.getmtime(cache_file)
             if cache_age < CACHE_TTL:
                 with open(cache_file, 'r') as f:
                     merged_data = json.load(f)
+                    print(f"Cache hit for filter '{filter_str}' (age: {cache_age:.2f} seconds)")
+                    from_cache = True
         except:
             pass
     
@@ -931,13 +983,24 @@ def dumps_get_compressed(aed_id):
     if merged_data is None:
         merged_data = []
         for file_name in os.listdir(dumps_folder):
-            if not file_name.endswith('.json') or file_name.startswith('_cache_'):
+            if not file_name.endswith('.json') or file_name.startswith('_cache_') or '_stats.json' in file_name:
                 continue
             with open(os.path.join(dumps_folder, file_name)) as f:
                 decrypted = g.fernet.decrypt(f.read())
             data = json.loads(decrypted)
+            print(f"Processing dump file: {os.path.join(dumps_folder, file_name)}, Number of packets: {len(data)}")
+            # Retrive ID from filename (ex: 350.json -> 350)
+            file_id = os.path.splitext(file_name)[0]
+            if file_id in pgs:
+                pg_name = pgs[file_id]
+            else:
+                pg_name = "Unknown"
+
+
             for packet in data:
                 if apply_filter(packet, filter_str):
+                    packet['pg_id'] = file_id
+                    packet['pg_name'] = pg_name
                     merged_data.append(packet)
         
         # Save to cache file
@@ -958,6 +1021,7 @@ def dumps_get_compressed(aed_id):
     
     result = {
         'packets': page_data,
+        'from_cache': from_cache,
         'pagination': {
             'page': page,
             'page_size': PAGE_SIZE,

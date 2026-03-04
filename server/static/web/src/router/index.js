@@ -105,6 +105,12 @@ const router = createRouter({
         props: true,
         component: () => import('../views/IPAccess.vue'),
       },
+      {
+        path: 'packet-explorer',
+        name: 'packet-explorer',
+        props: true,
+        component: () => import('../views/PacketExplorer.vue'),
+      },
     ]
     },
   ],

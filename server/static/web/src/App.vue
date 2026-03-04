@@ -74,6 +74,14 @@ onMounted(() => {
                     </ul>
                 </li>
             </ul>
+            <ul v-if="aed_id != 'blank'" class="bd-links-nav list-unstyled mb-0 pb-3 pb-md-2 pe-lg-2">
+                <li class="bd-links-group py-2">
+                    <strong class="bd-links-heading d-flex w-100 align-items-center fw-semibold">Explore</strong>
+                    <ul class="list-unstyled fw-normal pb-2 small">
+                        <li><RouterLink class="bd-links-link d-inline-block rounded" :to="'/' + aed_id + '/packet-explorer'">Packet Explorer</RouterLink></li>
+                    </ul>
+                </li>
+            </ul>
             <ul class="bd-links-nav list-unstyled mb-0 pb-3 pb-md-2 pe-lg-2">
                 <li class="bd-links-group py-2">
                     <strong class="bd-links-heading d-flex w-100 align-items-center fw-semibold">Tool Settings</strong>
