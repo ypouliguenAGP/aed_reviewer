@@ -8,6 +8,7 @@ from .helpers import get_results, intToBool, get_results_list
 from .protections import getProtectionDetails
 from .dumps import processPacketDump, packetStats
 from .aed_config import processSavedConfig
+from .stats_db import CreateStatsDB, InsertTrafficStats
 import os
 import copy
 import sys
@@ -22,23 +23,29 @@ def encryptSave(fernet, path, data):
     return True
     
 
-def processAEDConfig(basedir):
-
-    
-
+def processAEDConfig(basedir, fernet_key=None):
 
     FOLDER_NAME = os.path.join(basedir, 'inputs')
     EXPORT_PATH = basedir+"/"
+
+    progress_file = os.path.join(EXPORT_PATH, 'parsing_progress.json')
+    def update_progress(state, progress):
+        with open(progress_file, 'w') as pf:
+            json.dump({'state': state, 'progress': progress}, pf)
+
+    update_progress('init', 0)
 
     heath = {
         'disk': {},
     }
 
-    fernet_key = Fernet.generate_key()
+    if fernet_key is None:
+        fernet_key = Fernet.generate_key()
     fernet = Fernet(fernet_key)
     # with open(f"{EXPORT_PATH}fernet.key", 'wb') as filekey:
     #     filekey.write(fernet_key)
 
+    update_progress('hardware', 5)
     CMD = f"grep 'Total_LBAs_Written' -A 7 {FOLDER_NAME}/smartctl_sdc.txt"
     p = subprocess.run(CMD, shell=True, stdout=subprocess.PIPE)
     for entry in p.stdout.decode().splitlines():
@@ -61,6 +68,7 @@ def processAEDConfig(basedir):
     "denied-countries": [],
     }
 
+    update_progress('databases', 10)
     print(f"Opening {FOLDER_NAME}/tuba/cfg.db")
     conn_cfg = sqlite3.connect(f'{FOLDER_NAME}/tuba/cfg.db')
     cur_cfg = conn_cfg.cursor()
@@ -141,8 +149,11 @@ def processAEDConfig(basedir):
         for entry in row['v6'].splitlines():
             inbound["mfl"]['v6'].append(entry)
 
+    
+
 
     # PGs & STs
+    update_progress('protection_groups', 20)
     cur_cfg.execute('select * from pg join pg_prefix ON pg.pgid=pg_prefix.pgid;')
     results = get_results(cur_cfg)
     pgs = {}
@@ -202,6 +213,7 @@ def processAEDConfig(basedir):
         
 
     # Alert Bandwidth Thresholds
+    update_progress('alert_thresholds', 30)
 
     cur_cfg.execute('select * from pg_bandwidth_alert_config')
     results = get_results(cur_cfg)
@@ -262,6 +274,7 @@ def processAEDConfig(basedir):
         'T': 1000**4,
     }
 
+    update_progress('user_alerts', 35)
     cur_events.execute('select * from user_alerts ORDER BY start_time ASC')
     results = get_results(cur_events)
     value_pattern = r" was ([\d]+(?:\.[\d]{2}){0,1}) ([K|M|G|T]{0,1})([a-z]+)\."
@@ -318,9 +331,11 @@ def processAEDConfig(basedir):
 
 
 
+    update_progress('protections', 45)
     sts = getProtectionDetails(cur_cfg, pgs, sts)
 
 
+    update_progress('global_alerting', 50)
     global_alerting = {}
     cur_cfg.execute('select * from baseline_alerting_config')
     results = get_results(cur_cfg)
@@ -425,6 +440,7 @@ def processAEDConfig(basedir):
 
 
 
+    update_progress('feeds', 55)
     # Feeds
 
     conn_feed = sqlite3.connect(f'{FOLDER_NAME}/tuba/feed.db')
@@ -456,6 +472,7 @@ def processAEDConfig(basedir):
     conn_cfg.close()
     conn_events.close()
 
+    update_progress('changelog', 60)
     changes = getDBLogs(
         list(pgs.keys()),
         list(sts.keys()),
@@ -463,6 +480,7 @@ def processAEDConfig(basedir):
         )
 
 
+    update_progress('saved_config', 65)
     # Retriving Interfaces and IP Access
     interfaces_mgt, ipAccesses, ipRoutes, licenses, hardware, global_config_cli = processSavedConfig(FOLDER_NAME)
     global_config.update(global_config_cli)
@@ -483,6 +501,7 @@ def processAEDConfig(basedir):
         return formated
 
 
+    update_progress('saving', 75)
     # Writting to Files
 
     if not os.path.exists(EXPORT_PATH):
@@ -583,6 +602,7 @@ def processAEDConfig(basedir):
 
     
 
+    update_progress('packet_dumps', 80)
     if os.path.exists(f"{FOLDER_NAME}/stats/dumps/"):
         if not os.path.exists(f"{EXPORT_PATH}/stats/dumps/"):
             os.makedirs(f"{EXPORT_PATH}/stats/dumps/")
@@ -601,8 +621,8 @@ def processAEDConfig(basedir):
             #     json.dump(packetStats(entries), outfile, indent=EXPORT_INDENT)
     
 
-    # Copying Traffic Stats
-
+    update_progress('traffic_stats', 85)
+    
     folders_to_copy = ['attacks','traffic','locations','protocols','services']
     for folder in folders_to_copy:
         print(f"Creating {os.path.join(EXPORT_PATH, "stats", folder)}")
@@ -620,6 +640,13 @@ def processAEDConfig(basedir):
             print(f"Encrypting to {os.path.join(EXPORT_PATH, "stats", folder, entry.name)}")
 
 
+    # Copying Traffic Stats
+
+   
+    CreateStatsDB(EXPORT_PATH)
+    InsertTrafficStats(EXPORT_PATH)
+
+    update_progress('done', 100)
     return fernet_key
 
 

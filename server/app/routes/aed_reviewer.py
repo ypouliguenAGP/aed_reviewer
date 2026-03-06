@@ -18,6 +18,19 @@ import subprocess
 import ipaddress
 import hashlib
 import time
+import threading
+
+
+AEDTOOLKIT_EXT = {
+    '.ibc': 'inbound_deny_country',
+    '.ibd': 'inbound_deny_domain',
+    '.ibh': 'inbound_deny_host',
+    '.ibu': 'inbound_deny_url',
+    '.iwh': 'inbound_whitelist_host',
+    '.obc': 'outbound_deny_country',
+    '.obh': 'outbound_deny_host',
+    '.owh': 'outbound_whitelist_host',
+}
 
 
 def apply_filter(packet, filter_str):
@@ -314,77 +327,136 @@ def aed_upload():
 
 @bp.get('/api/<string:aed_id>/uncompress')
 def aed_uncompress(aed_id):
+    export_path = app.config['EXPORT_PATH']
+
+    # Run uncompression in a background thread
+    thread = threading.Thread(
+        target=_uncompress_worker,
+        args=(aed_id, export_path),
+        daemon=True
+    )
+    thread.start()
+
+    return {'success': True, 'message': 'Uncompression started', 'aed_id': aed_id}
+
+
+def _uncompress_worker(aed_id, export_path):
+    progress_file = os.path.join(export_path, aed_id, 'uncompress_progress.json')
+
+    def update_progress(state, progress):
+        with open(progress_file, 'w') as pf:
+            json.dump({'state': state, 'progress': progress}, pf)
+
+    update_progress('init', 0)
+
     saved_file = {
         'DiagFile': "DiagFile.tbz2",
         'AEDToolKit': "AEDToolKit.tar.bz2",
     }
     try:
+        update_progress('extracting_aedtoolkit', 10)
         print('Extracting AEDToolKit')
-        with tarfile.open(os.path.join(app.config['EXPORT_PATH'], aed_id, 'inputs', saved_file['AEDToolKit']), 'r:bz2') as tar:
+        with tarfile.open(os.path.join(export_path, aed_id, 'inputs', saved_file['AEDToolKit']), 'r:bz2') as tar:
             for member in tar.getmembers():
+
                 if re.search(".+\.stats\/.*\.[json|log]", member.name):
                     member_name = member.name
                     member.name = os.path.basename(member.name)
-                    print(f"Extracting {member.name} to {os.path.join(app.config['EXPORT_PATH'], aed_id, 'inputs', "stats", member_name.split('/')[-2])}")
-                    tar.extract(member, path=os.path.join(app.config['EXPORT_PATH'], aed_id, 'inputs', "stats", member_name.split('/')[-2]))
+                    print(f"Extracting {member.name} to {os.path.join(export_path, aed_id, 'inputs', 'stats', member_name.split('/')[-2])}")
+                    tar.extract(member, path=os.path.join(export_path, aed_id, 'inputs', "stats", member_name.split('/')[-2]))
+                    continue
+                # Extraction the AEDTOOLKIT file with extensions in AEDTOOLKIT_EXT
+                
+                if os.path.splitext(member.name)[1] in list(AEDTOOLKIT_EXT.keys()):
+                    # Check which entry is matched
+                    entry = AEDTOOLKIT_EXT[os.path.splitext(member.name)[1]]
+                    member_name = member.name
+                    member.name = os.path.basename(member.name)
+                    output_file = os.path.join(export_path, aed_id, f"{entry}.json")
+                    print(f"Extracting {member.name} to {output_file}")
+                    # Extract to temp location, then move to final location
+                    tar.extract(member, path=os.path.join(export_path, aed_id))
+                    temp_file = os.path.join(export_path, aed_id, member.name)
+                    if os.path.exists(temp_file):
+                        shutil.move(temp_file, output_file)
+                    
+                
         tar.close()
     except:
         pass
+
+    update_progress('extracting_diagfile', 20)
 
     file_list = ['config_show_saved','ifconfig.txt','licenses.txt','hardware.txt','ntp.txt','pkgs.txt','backup.log',
                  'syslog','syslog.0.gz','syslog.1.gz','syslog.2.gz','syslog.3.gz','syslog.4.gz',
                  'tuba/tuba.db','tuba/cfg.db','tuba/events.db','tuba/feed.db','tuba/log.db','smartctl_sdc.txt']
     base = None
     print('Extracting DiagFile')
-    with tarfile.open(os.path.join(app.config['EXPORT_PATH'], aed_id, 'inputs', saved_file['DiagFile']), 'r:bz2') as tar:
+    with tarfile.open(os.path.join(export_path, aed_id, 'inputs', saved_file['DiagFile']), 'r:bz2') as tar:
         base = tar.getmembers()[0].name.split('/')[0]
         
+        update_progress('extracting_diagfile_configs', 50)
         for file_name in file_list:
             try:
                 member = tar.getmember(f"{base}/{file_name}")
                 member.name = file_name
-                print(f"Extracting {member.name} to {os.path.join(app.config['EXPORT_PATH'], aed_id, 'inputs')}")
-                tar.extract(member, path=os.path.join(app.config['EXPORT_PATH'], aed_id, 'inputs'))
+                print(f"Extracting {member.name} to {os.path.join(export_path, aed_id, 'inputs')}")
+                tar.extract(member, path=os.path.join(export_path, aed_id, 'inputs'))
             except KeyError:
                 print(f"Warning: File '{base}/{file_name}' not found in the tar archive.")
+
+        update_progress('extracting_statusdumps', 70)
         for member in tar.getmembers():
             # Extract statusdump files
             if re.search(".+statusdump_history\/statusdump\.[0-9]+\.txt\.bz2", member.name):
                 member_name = member.name
                 member.name = os.path.basename(member.name)
-                print(f"Extracting {member.name} to {os.path.join(app.config['EXPORT_PATH'], aed_id, 'inputs', 'tuba', 'statusdump_history')}")
-                tar.extract(member, path=os.path.join(app.config['EXPORT_PATH'], aed_id, 'inputs', 'tuba', 'statusdump_history'))
-    return {'success': True, 'message': f'files uncompresses successfully', 'aed_id':aed_id}
+                print(f"Extracting {member.name} to {os.path.join(export_path, aed_id, 'inputs', 'tuba', 'statusdump_history')}")
+                tar.extract(member, path=os.path.join(export_path, aed_id, 'inputs', 'tuba', 'statusdump_history'))
+
+    update_progress('done', 100)
+
+
+@bp.get('/api/<string:aed_id>/uncompress_progress')
+def uncompress_progress_get(aed_id):
+    progress_file = os.path.join(app.config['EXPORT_PATH'], aed_id, 'uncompress_progress.json')
+    if not os.path.exists(progress_file):
+        return {'success': False, 'message': 'Uncompression has not started'}
+    with open(progress_file) as f:
+        progress = json.load(f)
+    progress['success'] = progress.get('state') == 'done'
+    return jsonify(progress)
     
 
 @bp.get('/api/<string:aed_id>/parse')
 def aed_parse(aed_id):
-    fernet_key = processAEDConfig(os.path.abspath(os.path.join(app.config['EXPORT_PATH'], aed_id)))
-    # try:
-    # folders_to_copy = ['attacks','traffic','locations','protocols','services']
-    # for folder in folders_to_copy:
-    #     print(folder)
-    #     print(f"Creating {os.path.join(app.config['EXPORT_PATH'], aed_id, "stats", folder)}")
-    #     os.makedirs(os.path.join(app.config['EXPORT_PATH'], aed_id, "stats", folder), exist_ok=True)
-    #     obj = os.scandir(os.path.abspath(os.path.join(app.config['EXPORT_PATH'], aed_id, "inputs", "stats", folder)))
-    #     for entry in obj:
-    #         if not entry.is_file():
-    #             continue
-    #         if not entry.name.endswith('.json'):
-    #             continue
-    #         # print(entry.path)
-    #         shutil.copyfile(entry.path, os.path.join(app.config['EXPORT_PATH'], aed_id, "stats", folder, entry.name))
-    #         print(f"Coying to {os.path.join(app.config['EXPORT_PATH'], aed_id, "stats", folder, entry.name)}")
-        # print(f'Copying folder {folder}')
-        
-        # shutil.copytree(os.path.abspath(os.path.join(app.config['EXPORT_PATH'], aed_id, "inputs", "stats", folder)), os.path.join(app.config['EXPORT_PATH'], aed_id, "stats", folder), dirs_exist_ok=True)
-    # shutil.rmtree(os.path.join(app.config['EXPORT_PATH'], aed_id, "inputs"), ignore_errors=True)
-    # except:
-    #     pass
-    resp = make_response(jsonify({'success': True, 'aed_id':aed_id, 'key': fernet_key.decode("utf-8")}))
-    resp.set_cookie(aed_id, fernet_key.decode("utf-8"), path=f"/aed_reviewer/api/{aed_id}/", max_age=3600*24*30)
-    # shutil.rmtree(os.path.join(app.config[''], aed_id, "inputs"), ignore_errors=True)
+    # Generate fernet key upfront so we can return it immediately
+    fernet_key = Fernet.generate_key()
+    basedir = os.path.abspath(os.path.join(app.config['EXPORT_PATH'], aed_id))
+
+    # Run parsing in a background thread
+    thread = threading.Thread(
+        target=processAEDConfig,
+        args=(basedir,),
+        kwargs={'fernet_key': fernet_key},
+        daemon=True
+    )
+    thread.start()
+
+    resp = make_response(jsonify({'success': True, 'aed_id': aed_id, 'key': fernet_key.decode('utf-8')}))
+    resp.set_cookie(aed_id, fernet_key.decode('utf-8'), path=f"/aed_reviewer/api/{aed_id}/", max_age=3600*24*30)
     return resp
+
+
+@bp.get('/api/<string:aed_id>/parsing_progress')
+def parsing_progress_get(aed_id):
+    progress_file = os.path.join(app.config['EXPORT_PATH'], aed_id, 'parsing_progress.json')
+    if not os.path.exists(progress_file):
+        return {'success': False, 'message': 'Parsing has not started'}
+    with open(progress_file) as f:
+        progress = json.load(f)
+    progress['success'] = progress.get('state') == 'done'
+    return jsonify(progress)
 
 @bp.get('/api/<string:aed_id>/statusdump_parse')
 def statusdump_parse(aed_id):
@@ -394,11 +466,11 @@ def statusdump_parse(aed_id):
     output_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', app.config['EXPORT_PATH'], aed_id))
     script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'scripts', 'statusdump_parse'))
     print("Running statusdump_parse")
-    print([f"{script_path} -i {input_path} -o {output_path}"])
+    print([f"{script_path} -i {input_path} -o {output_path} -progress"])
 
     try:
         result = subprocess.run(
-            [script_path, '-i', input_path, '-o', output_path],
+            [script_path, '-i', input_path, '-o', output_path, '-progress'],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -507,6 +579,12 @@ def pgs_get(aed_id):
         decrypted = g.fernet.decrypt(f.read())
     return jsonify(json.loads(decrypted))
 
+
+@bp.get('/api/<string:aed_id>/protection_groups_list')
+@key_required
+def pgs_list_get(aed_id):
+    return {'success': True, 'data': pgs_list(aed_id)}
+
 def pgs_list(aed_id):
     with open(f"{app.config['EXPORT_PATH']}{aed_id}/pgs.json") as f:
         decrypted = g.fernet.decrypt(f.read())   
@@ -523,11 +601,9 @@ def mfl_get(aed_id):
     with open(f"{app.config['EXPORT_PATH']}{aed_id}/master_filter_list.json") as f:
         decrypted = g.fernet.decrypt(f.read())
     mfl = json.loads(decrypted)
-    # with open(f"{app.config['EXPORT_PATH']}/{aed_id}/master_filter_list.json") as f:
-    #     mfl = json.load(f)
-    if 'v4' not in mfl:
+    if 'v4' not in mfl and 'v6' not in mfl:
         return {'success': False}
-    return mfl['v4']
+    return jsonify({'success': True, 'v4': mfl.get('v4', []), 'v6': mfl.get('v6', [])})
 
 @bp.get('/api/<string:aed_id>/protection_groups/<string:pg_id>')
 @key_required
@@ -702,6 +778,156 @@ def prepare_services_data(traffic):
             data[service_name]['bps'].append([traffic['times'][i][0]*1000,traffic['bps'][service_position][i]])
     return data
 
+
+@bp.get('/api/<string:aed_id>/traffic/protection_groups/<string:period>/<string:packet_action>')
+@key_required
+def traffic_protection_groups(aed_id, period='1d', packet_action='total'):
+    start_time = time.time()
+
+    PERIODS = {
+        '1h': 3600,
+        '1d': 3600*24,
+        '7d': 3600*24*7,
+    }
+    PERIODS_GRANULARITY = {
+        '1h': 10,
+        '1d': 300,
+        '7d': 1200,
+    }
+
+    
+
+    pgs = pgs_list(aed_id)
+    # The keys should be int instead of string, convert them to int
+    pgs = {int(key): value for key, value in pgs.items()}
+    for pg_id, pg in pgs.items():
+        pgs[pg_id] = f"{pg} ({pg_id})"
+
+
+    # Find the pg_id of the protection group called "Default Protection Group"
+    default_pg_id = None
+    for pg_id, pg_name in pgs.items():
+        if pg_name == "Default Protection Group":
+            default_pg_id = pg_id
+            break
+
+    stats = {
+        'times': [],
+        'bps': {
+            packet_action: {}
+        },
+        'pps': {
+            packet_action: {}
+        },
+    }
+
+
+    for pg_id in pgs:
+        pg_name = pgs[pg_id]
+        stats['bps'][packet_action][pg_name] = []
+        stats['pps'][packet_action][pg_name] = []
+
+    if period not in PERIODS:
+        return {'success': False, 'message': f'Period {period} not supported, supported periods are {list(PERIODS.keys())}'}
+
+
+    db_path = os.path.join(app.config['EXPORT_PATH'], aed_id, "stats.db")
+    if not os.path.exists(db_path):
+        print(f"Stats database not found for AED ID {aed_id}")
+        return {'success': False, 'message': 'Stats database not found'}
+    
+    conn_stats = sqlite3.connect(db_path)
+    cur_stats = conn_stats.cursor()
+
+    # Retrieve the last timestamp in the database, which indicates the most recent data point available
+    cur_stats.execute("SELECT MAX(date) FROM traffic")
+    last_timestamp = cur_stats.fetchone()[0]
+    if last_timestamp is None:
+        print(f"No traffic data found in stats database for AED ID {aed_id}")
+        return {'success': False, 'message': 'No traffic data found in stats database'}
+    stats['last_timestamp'] = last_timestamp
+    starting_timestamp = int(last_timestamp - PERIODS[period])
+    stats['starting_timestamp'] = starting_timestamp
+
+    # Retrieve traffic data for the specified period per pg_id, aggregating by the defined granularity
+    granularity = PERIODS_GRANULARITY[period]
+    
+    if packet_action == 'passed':
+        columns = """
+               COALESCE(AVG(t.bpsPassed), 0) AS avg_bps_passed,
+               COALESCE(AVG(t.ppsPassed), 0) AS avg_pps_passed"""
+    elif packet_action == 'dropped':
+        columns = """
+               COALESCE(AVG(t.bpsDropped), 0) AS avg_bps_dropped,
+               COALESCE(AVG(t.ppsDropped), 0) AS avg_pps_dropped"""
+    elif packet_action == 'total':
+        columns = """
+               COALESCE(AVG(t.bpsPassed+t.bpsDropped), 0) AS avg_bps_total,
+               COALESCE(AVG(t.ppsPassed+t.ppsDropped), 0) AS avg_pps_total"""
+
+
+
+    # Build a query that returns average bpsPassed per pg_id per time bucket,
+    # filling missing pg_id/bucket combinations with 0
+    buckets_query = f"""
+        
+        WITH RECURSIVE time_buckets(bucket) AS (
+            SELECT {starting_timestamp} / {granularity} * {granularity}
+            UNION ALL
+            SELECT bucket + {granularity}
+            FROM time_buckets
+            WHERE bucket + {granularity} <= {last_timestamp} / {granularity} * {granularity}
+        ),
+        pg_ids AS (
+            SELECT DISTINCT pg_id FROM traffic
+        ),
+        pg_buckets AS (
+            SELECT pg_ids.pg_id, time_buckets.bucket
+            FROM pg_ids CROSS JOIN time_buckets
+        )
+        SELECT pb.pg_id,
+               pb.bucket,
+               {columns}
+               
+
+        FROM pg_buckets pb
+        LEFT JOIN traffic t
+            ON t.pg_id = pb.pg_id
+            AND t.date / {granularity} * {granularity} = pb.bucket
+            AND t.date >= {starting_timestamp}
+            AND t.date <= {last_timestamp}
+        GROUP BY pb.pg_id, pb.bucket
+        ORDER BY pb.pg_id, pb.bucket ASC
+    """
+
+    cur_stats.execute(buckets_query)
+    print("Buckets query results:")
+    print(list(pgs.keys()))
+    rows = cur_stats.fetchall()
+    for row in rows:
+        pg_id = row[0]
+        # print(f"Processing pg_id {pg_id}, {type(pg_id)}")
+        if pg_id not in list(pgs.keys()):
+            continue
+        pg_name = pgs[pg_id]
+
+        # Building timeserie
+        # if pg_id == default_pg_id:
+        #     stats['times'].append(row[1]*1000)
+
+      
+        stats['bps'][packet_action][pg_name].append([row[1]*1000,row[2]])
+        stats['pps'][packet_action][pg_name].append([row[1]*1000,row[3]])
+
+    data = {'data': stats, 'success': True, '_exec': time.time() - start_time}
+    content = gzip.compress(json.dumps(data).encode('utf8'), 5)
+    response = make_response(content)
+    response.headers['Content-length'] = len(content)
+    response.headers['Content-Encoding'] = 'gzip'
+    response.headers['Content-Type'] = 'application/json'
+    return response
+    
+
 @bp.get('/api/<string:aed_id>/server_types')
 @key_required
 def sts_get(aed_id):
@@ -783,6 +1009,19 @@ def crawlers_get(aed_id):
         decrypted = g.fernet.decrypt(f.read())
     return jsonify(json.loads(decrypted))
 
+
+@bp.get('/api/<string:aed_id>/lists/<string:list_type>')
+@key_required
+def lists_get(aed_id, list_type):
+    valid_list_types = []
+    for key in AEDTOOLKIT_EXT:
+        valid_list_types.append(AEDTOOLKIT_EXT[key])
+    if list_type not in valid_list_types:
+        return {'success': False, 'message': f'List type {list_type} not supported'}
+
+    with open(f"{app.config['EXPORT_PATH']}{aed_id}/{list_type}.json") as f:
+        data = json.loads(f.read())
+    return {'success': True, 'data': data}
 
 @bp.get('/api/<string:aed_id>/notifications')
 @key_required
@@ -945,7 +1184,7 @@ def dumps_get_compressed(aed_id):
     page = request_data.get('page', 1)
     use_cache = request_data.get('use_cache', True)
     PAGE_SIZE = request_data.get('page_size', PAGE_SIZE)
-    
+
     
     dumps_folder = f"{app.config['EXPORT_PATH']}/{aed_id}/stats/dumps/"
     if not os.path.exists(dumps_folder):
@@ -1063,6 +1302,19 @@ def pg_dump_stats_get(pg_id, aed_id):
 
 @bp.get('/api/<string:aed_id>/statusdump/interfaces')
 def statusdump_intf_get(aed_id):
+    # Check if progress.json exists and if statusdump is still in progress
+    progress_file = os.path.join(app.config['EXPORT_PATH'], aed_id, 'progress.json')
+    if not os.path.exists(progress_file):
+        return {'success': False, 'message': 'Progress file does not exist'}
+    with open(progress_file) as f:
+        # File not encrypted as it is updated in real time by the statusdump process
+        progress = json.load(f)
+    if progress.get('state') != 'done':
+        response = progress
+        response['message'] = 'Statusdump is still in progress'
+        response['success'] = False
+        return response
+
     # Open the sqlite3 interface_stats.db
     db_path = os.path.join(app.config['EXPORT_PATH'], aed_id, 'interface_stats.db')
     if not os.path.exists(db_path):
