@@ -389,7 +389,7 @@ def _uncompress_worker(aed_id, export_path):
 
     file_list = ['config_show_saved','ifconfig.txt','licenses.txt','hardware.txt','ntp.txt','pkgs.txt','backup.log',
                  'syslog','syslog.0.gz','syslog.1.gz','syslog.2.gz','syslog.3.gz','syslog.4.gz',
-                 'tuba/tuba.db','tuba/cfg.db','tuba/events.db','tuba/feed.db','tuba/log.db','smartctl_sdc.txt']
+                 'tuba/tuba.db','tuba/cfg.db','tuba/events.db','tuba/feed.db','tuba/log.db','smartctl_sdc.txt','tuba/blocked_hosts.log']
     base = None
     print('Extracting DiagFile')
     with tarfile.open(os.path.join(export_path, aed_id, 'inputs', saved_file['DiagFile']), 'r:bz2') as tar:
@@ -630,6 +630,112 @@ def pg_details_get(pg_id, aed_id):
         data['stats'] = True
     return {'success': True, 'data':data}
 
+
+@bp.get('/api/<string:aed_id>/protection_groups/<string:pg_id>/blocked_hosts_count')
+@key_required
+def pg_blocked_hosts_get_count(pg_id, aed_id):
+    start_exec = time.time()
+    # Check if from url parameter is defined
+    starting_type = request.args.get('from', 0)
+    print(f"Getting blocked hosts count for PG {pg_id} from {starting_type}")
+
+
+    # Open the blocked_hosts.db
+    db_path = f"{app.config['EXPORT_PATH']}{aed_id}/blocked_hosts.db"
+    print(db_path)
+    if not os.path.exists(db_path):
+        return {'success': False, 'message': 'No blocked hosts data available'}
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    # Query the blocked hosts for the specified PG
+    # pg_ids contains multiple ids in an array
+    try:
+        # Count distinct blocked host IPs for this protection group
+        cursor.execute("""
+            SELECT COUNT(host_ip) as unique_blocked_hosts
+            FROM blocked_hosts
+            WHERE first_block_time >= ? AND pg_ids LIKE ?
+        """, (starting_type, f'%{pg_id}%',))
+        row = cursor.fetchone()
+        count = row[0] if row else 0
+        conn.close()
+        return {'success': True, 'pg_id': pg_id, 'unique_blocked_hosts': count, '_exec': time.time() - start_exec}
+    except Exception as e:
+        conn.close()
+        return {'success': False, 'message': str(e)}
+    
+
+@bp.get('/api/<string:aed_id>/protection_groups/<int:selected_pg_id>/blocked_hosts')
+@key_required
+def pg_blocked_hosts_get(selected_pg_id, aed_id):
+    start_exec = time.time()
+    # Open the blocked_hosts.db
+    db_path = f"{app.config['EXPORT_PATH']}{aed_id}/blocked_hosts.db"
+    print(db_path)
+    print(f"Getting blocked hosts for PG {selected_pg_id}")
+    if not os.path.exists(db_path):
+        return {'success': False, 'message': 'No blocked hosts data available'}
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    # Query the blocked hosts for the specified PG
+    try:
+        cursor.execute("""
+            SELECT id, host_ip, first_block_time, last_block_time, attack_categories, protocol,
+                   lowest_dst_port, highest_dst_port, lowest_dst_ip, highest_dst_ip, pg_ids
+            FROM blocked_hosts
+            WHERE pg_ids LIKE ?
+        """, (f'%{selected_pg_id}%',))
+        rows = cursor.fetchall()
+        conn.close()
+        results = []
+        pg_id_needed = []
+        for row in rows:
+            try:
+                pg_ids = json.loads(row[10])
+            except (json.JSONDecodeError, TypeError):
+                pg_ids = []
+            # Verify the pg_id actually matches (not just a substring)
+            if selected_pg_id not in pg_ids:
+                continue
+            try:
+                attack_categories = json.loads(row[4])
+            except (json.JSONDecodeError, TypeError):
+                attack_categories = []
+            results.append({
+                'host_ip': row[1],
+                'first_block_time': row[2],
+                'last_block_time': row[3],
+                'attack_categories': attack_categories,
+                'protocol': row[5],
+                'lowest_dst_port': row[6],
+                'highest_dst_port': row[7],
+                'lowest_dst_ip': row[8],
+                'highest_dst_ip': row[9],
+                'pg_ids': pg_ids
+            })
+            for pg_id in pg_ids:
+                if pg_id not in pg_id_needed:
+                    pg_id_needed.append(pg_id)
+        pgs = {}
+        for pg_id, pg_name in pgs_list(aed_id).items():
+            if int(pg_id) in pg_id_needed:
+                pgs[pg_id] = pg_name
+
+
+        content = gzip.compress(json.dumps(
+            {'_exec': time.time() - start_exec,'success': True, 'pg_id': pg_id, 'blocked_hosts': results, 'pgs': pgs}
+            ).encode('utf8'), 5)
+        response = make_response(content)
+        response.headers['Content-length'] = len(content)
+        response.headers['Content-Encoding'] = 'gzip'
+        return response
+
+    except Exception as e:
+        conn.close()
+        return {'success': False, 'message': str(e)}
+
+
+
 @bp.get('/api/<string:aed_id>/protection_groups/<string:pg_id>/traffic_locations/<string:period>')
 @key_required
 def prepare_traffic_location(pg_id, aed_id, period='1d'):
@@ -774,8 +880,12 @@ def prepare_services_data(traffic):
             'pps': [],
         }
         for i in range(len(traffic['times'])):
-            data[service_name]['pps'].append([traffic['times'][i][0]*1000,traffic['pps'][service_position][i]])
-            data[service_name]['bps'].append([traffic['times'][i][0]*1000,traffic['bps'][service_position][i]])
+            try:
+                data[service_name]['pps'].append([traffic['times'][i][0]*1000,traffic['pps'][service_position][i]])
+                data[service_name]['bps'].append([traffic['times'][i][0]*1000,traffic['bps'][service_position][i]])
+            except IndexError:
+                print(f"IndexError for service {service_name} at position {service_position} and time index {i}")
+                continue
     return data
 
 
@@ -1528,3 +1638,4 @@ def statusdump_traffic_combined_get(aed_id, unit='bps'):
 
 def date_to_timestamp(date_str):
     return int(datetime.timestamp(datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S'))*1000)
+

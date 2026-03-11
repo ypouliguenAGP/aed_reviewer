@@ -9,6 +9,7 @@ from .protections import getProtectionDetails
 from .dumps import processPacketDump, packetStats
 from .aed_config import processSavedConfig
 from .stats_db import CreateStatsDB, InsertTrafficStats
+from .blocked_hosts import extrackBlockedHosts
 import os
 import copy
 import sys
@@ -480,7 +481,7 @@ def processAEDConfig(basedir, fernet_key=None):
         )
 
 
-    update_progress('saved_config', 65)
+    update_progress('saved_config', 60)
     # Retriving Interfaces and IP Access
     interfaces_mgt, ipAccesses, ipRoutes, licenses, hardware, global_config_cli = processSavedConfig(FOLDER_NAME)
     global_config.update(global_config_cli)
@@ -600,7 +601,11 @@ def processAEDConfig(basedir, fernet_key=None):
     encryptSave(fernet, f"{EXPORT_PATH}ip_routes.json", ipRoutes)
     encryptSave(fernet, f"{EXPORT_PATH}interfaces_mgt.json", interfaces_mgt)
 
-    
+    update_progress('blocked hosts extraction', 70)
+    try:
+        extrackBlockedHosts(EXPORT_PATH)
+    except FileNotFoundError:
+        print("No blocked_hosts.log file found, skipping blocked hosts extraction.")
 
     update_progress('packet_dumps', 80)
     if os.path.exists(f"{FOLDER_NAME}/stats/dumps/"):
@@ -647,6 +652,7 @@ def processAEDConfig(basedir, fernet_key=None):
     InsertTrafficStats(EXPORT_PATH)
 
     update_progress('done', 100)
+    print(f"Export path: {EXPORT_PATH}")
     return fernet_key
 
 

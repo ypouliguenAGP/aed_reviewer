@@ -71,7 +71,7 @@ REPUTATION_CAT = {
 REPUTATION_DEFAULT = {
     1: 80, # Low
     2: 60, # Medium
-    3: 20 # High
+    3: 40 # High
 }
 
 PARENT_TYPE = {
